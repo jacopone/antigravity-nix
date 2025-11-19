@@ -27,15 +27,23 @@ get_latest_version() {
 
     # Fetch the download page
     local download_page
-    download_page=$(curl -sL "https://antigravity.google/download/linux")
+    download_page=$(curl -sL --compressed "https://antigravity.google/download/linux" 2>/dev/null || echo "")
+
+    # Check if download page was fetched successfully
+    if [[ -z "$download_page" ]]; then
+        log_error "Failed to fetch download page from antigravity.google"
+        log_warn "Keeping current version (network issue or page unavailable)"
+        return 1
+    fi
 
     # Extract version from the download URL
     # The URL pattern is: https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable/VERSION/linux-x64/Antigravity.tar.gz
     local version
-    version=$(echo "$download_page" | grep -oP 'antigravity/stable/\K[0-9.]+-[0-9]+' | head -1)
+    version=$(echo "$download_page" | tr -d '\000' | grep -oP 'antigravity/stable/\K[0-9.]+-[0-9]+' | head -1)
 
     if [[ -z "$version" ]]; then
         log_error "Could not extract version from download page"
+        log_warn "Page format may have changed. Manual investigation needed."
         return 1
     fi
 
