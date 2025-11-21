@@ -163,7 +163,7 @@ let
     name = "antigravity";
     desktopName = "Google Antigravity";
     comment = "Next-generation agentic IDE";
-    exec = "antigravity %U";
+    exec = "antigravity --enable-features=UseOzonePlatform,WaylandWindowDecorations --ozone-platform-hint=auto %U";
     icon = "antigravity";
     categories = [ "Development" "IDE" ];
     startupNotify = true;
