@@ -1,11 +1,19 @@
 name: Create Release
 
 on:
+  # Trigger when Update workflow completes (bypasses GITHUB_TOKEN limitation)
+  workflow_run:
+    workflows: ["Update Google Antigravity"]
+    types:
+      - completed
+  # Keep push trigger for manual merges by humans
   push:
     branches:
       - master
     paths:
       - 'package.nix'
+  # Allow manual trigger
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -14,6 +22,11 @@ jobs:
   create-release:
     name: Create GitHub release
     runs-on: ubuntu-latest
+    # Only run if: workflow_dispatch, push event, OR workflow_run that succeeded
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
 
     steps:
       - name: Checkout repository
