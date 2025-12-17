@@ -34,48 +34,30 @@ jobs:
         with:
           fetch-depth: 2
 
-      - name: Check if version changed
-        id: version_check
-        run: |
-          CURRENT_VERSION=$(grep -oP 'version = "\K[^"]+' flake.nix | head -1)
-          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-
-          git show HEAD~1:flake.nix > /tmp/old_flake.nix 2>/dev/null || true
-
-          if [ -f /tmp/old_flake.nix ]; then
-            PREVIOUS_VERSION=$(grep -oP 'version = "\K[^"]+' /tmp/old_flake.nix | head -1)
-            echo "previous_version=$PREVIOUS_VERSION" >> $GITHUB_OUTPUT
-
-            if [ "$CURRENT_VERSION" != "$PREVIOUS_VERSION" ]; then
-              echo "version_changed=true" >> $GITHUB_OUTPUT
-              echo "Version changed: $PREVIOUS_VERSION -> $CURRENT_VERSION"
-            else
-              echo "version_changed=false" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "version_changed=true" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Check if release exists
-        if: steps.version_check.outputs.version_changed == 'true'
+      - name: Check if release needed
         id: release_check
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ steps.version_check.outputs.current_version }}
         run: |
-          if gh release view "v$VERSION" >/dev/null 2>&1; then
-            echo "release_exists=true" >> $GITHUB_OUTPUT
+          # Get current version from flake.nix
+          CURRENT_VERSION=$(grep -oP 'version = "\K[^"]+' flake.nix | head -1)
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "Current version: $CURRENT_VERSION"
+
+          # Check if release already exists for this version
+          if gh release view "v$CURRENT_VERSION" >/dev/null 2>&1; then
+            echo "should_release=false" >> $GITHUB_OUTPUT
+            echo "Release v$CURRENT_VERSION already exists, skipping"
           else
-            echo "release_exists=false" >> $GITHUB_OUTPUT
+            echo "should_release=true" >> $GITHUB_OUTPUT
+            echo "Release v$CURRENT_VERSION does not exist, will create"
           fi
 
       - name: Create release
-        if: |
-          steps.version_check.outputs.version_changed == 'true' &&
-          steps.release_check.outputs.release_exists == 'false'
+        if: steps.release_check.outputs.should_release == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ steps.version_check.outputs.current_version }}
+          VERSION: ${{ steps.release_check.outputs.current_version }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
