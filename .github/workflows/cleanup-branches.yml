@@ -3,6 +3,9 @@ name: Cleanup Merged Branches
 on:
   pull_request:
     types: [closed]
+  schedule:
+    # Run weekly on Sunday at 00:00 UTC to clean up stale branches
+    - cron: '0 0 * * 0'
   workflow_dispatch:
     inputs:
       dry_run:
@@ -47,8 +50,8 @@ jobs:
 
   cleanup-stale-branches:
     name: Cleanup all stale merged branches
-    # Only run on manual workflow dispatch
-    if: github.event_name == 'workflow_dispatch'
+    # Run on manual dispatch or scheduled runs
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
     runs-on: ubuntu-latest
 
     steps:
@@ -60,7 +63,8 @@ jobs:
       - name: Find and delete stale auto-update branches
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DRY_RUN: ${{ inputs.dry_run }}
+          # For scheduled runs, default to dry_run=false (actually delete)
+          DRY_RUN: ${{ github.event_name == 'schedule' && 'false' || inputs.dry_run }}
           REPO: ${{ github.repository }}
         run: |
           echo "Searching for merged auto-update/* branches..."
@@ -82,9 +86,9 @@ jobs:
             echo ""
             echo "Checking branch: $BRANCH"
 
-            # Check if branch is merged into main
-            if git merge-base --is-ancestor "origin/$BRANCH" origin/main 2>/dev/null; then
-              echo "  ✓ Branch is merged into main"
+            # Check if branch is merged into master
+            if git merge-base --is-ancestor "origin/$BRANCH" origin/master 2>/dev/null; then
+              echo "  ✓ Branch is merged into master"
 
               if [ "$DRY_RUN" = "true" ]; then
                 echo "  [DRY RUN] Would delete: $BRANCH"
