@@ -110,18 +110,40 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NEW_VERSION: ${{ steps.update.outputs.new_version }}
         run: |
-          # Wait for PR to be created
-          sleep 5
+          # Retry loop with exponential backoff to find the PR
+          MAX_ATTEMPTS=5
+          ATTEMPT=1
+          WAIT_TIME=5
 
-          # Get the PR number
-          PR_NUMBER=$(gh pr list --head "auto-update/antigravity-$NEW_VERSION" --json number --jq '.[0].number')
+          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+            echo "Attempt $ATTEMPT/$MAX_ATTEMPTS: Looking for PR..."
 
-          if [ -n "$PR_NUMBER" ]; then
-            echo "Enabling auto-merge for PR #$PR_NUMBER"
-            gh pr merge "$PR_NUMBER" --auto --squash
-          else
-            echo "Could not find PR to enable auto-merge"
-          fi
+            PR_NUMBER=$(gh pr list --head "auto-update/antigravity-$NEW_VERSION" --json number --jq '.[0].number')
+
+            if [ -n "$PR_NUMBER" ]; then
+              echo "Found PR #$PR_NUMBER"
+              echo "Enabling auto-merge..."
+
+              if gh pr merge "$PR_NUMBER" --auto --squash; then
+                echo "✓ Auto-merge enabled for PR #$PR_NUMBER"
+                exit 0
+              else
+                echo "⚠ Failed to enable auto-merge, but PR exists"
+                exit 0
+              fi
+            fi
+
+            if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
+              echo "PR not found yet, waiting ${WAIT_TIME}s before retry..."
+              sleep $WAIT_TIME
+              WAIT_TIME=$((WAIT_TIME * 2))  # Exponential backoff
+            fi
+
+            ATTEMPT=$((ATTEMPT + 1))
+          done
+
+          echo "⚠ Could not find PR after $MAX_ATTEMPTS attempts"
+          echo "The PR may have been created but not yet visible via API"
 
       - name: Report status
         if: always()
