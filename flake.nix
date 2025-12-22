@@ -53,7 +53,7 @@
       }
     ) // {
       # Version information for auto-update
-      version = "1.12.4-5388582906101760";
+      version = "1.13.3-4533425205018624";
 
       # Overlay for easy integration into NixOS configurations
       overlays.default = final: prev: {
