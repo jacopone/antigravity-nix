@@ -34,7 +34,7 @@
 
 let
   pname = "google-antigravity";
-  version = "1.12.4-5388582906101760";
+  version = "1.13.3-4533425205018624";
 
   isAarch64 = stdenv.hostPlatform.system == "aarch64-linux";
 
@@ -54,7 +54,7 @@ let
 
   src = fetchurl {
     url = "https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable/${version}/linux-x64/Antigravity.tar.gz";
-    sha256 = "sha256-iruKBaZ9+LJEBBkr09IUPFmP3uHTFKpyliQH87G0lvA=";
+    sha256 = "sha256-CE377fEEmzY6o617pnnuyLgP6vKVhazLkLWRDrsnAEg=";
   };
 
   # Create a browser wrapper that uses the user's existing profile
