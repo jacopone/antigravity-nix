@@ -154,7 +154,7 @@ let
       export CHROME_BIN=${chrome-wrapper}
       export CHROME_PATH=${chrome-wrapper}
 
-      exec ${antigravity-unwrapped}/lib/antigravity/antigravity "$@"
+      exec ${antigravity-unwrapped}/lib/antigravity/bin/antigravity "$@"
     '';
 
     meta = antigravity-unwrapped.meta;
