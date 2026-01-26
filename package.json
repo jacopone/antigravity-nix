@@ -9,7 +9,7 @@
     "update": "bash scripts/update-version.sh"
   },
   "dependencies": {
-    "playwright-chromium": "^1.57.0"
+    "playwright-chromium": "^1.58.0"
   },
   "engines": {
     "node": ">=20.0.0"
