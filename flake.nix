@@ -18,6 +18,7 @@
         packages = {
           default = pkgs.callPackage ./package.nix { };
           google-antigravity = pkgs.callPackage ./package.nix { };
+          google-antigravity-no-fhs = pkgs.callPackage ./package.nix { useFHS = false; };
         };
 
         apps = {

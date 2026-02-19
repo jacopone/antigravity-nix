@@ -2,8 +2,10 @@
 , stdenv
 , fetchurl
 , buildFHSEnv
+, autoPatchelfHook
 , makeDesktopItem
 , copyDesktopItems
+, makeWrapper
 , writeShellScript
 , alsa-lib
 , at-spi2-atk
@@ -18,6 +20,7 @@
 , gtk3
 , libdrm
 , libgbm
+, libglvnd
 , libnotify
 , libsecret
 , libuuid
@@ -27,8 +30,10 @@
 , nss
 , pango
 , systemd
+, vulkan-loader
 , xorg
 , zlib
+, useFHS ? true
 , google-chrome ? null
 }:
 
@@ -74,7 +79,75 @@ let
       "$@"
   '';
 
-  # Extract and prepare the antigravity binary
+  # Shared runtime library dependencies
+  runtimeLibs = [
+    alsa-lib
+    at-spi2-atk
+    at-spi2-core
+    atk
+    cairo
+    cups
+    dbus
+    expat
+    glib
+    gtk3
+    libdrm
+    libgbm
+    libglvnd
+    libnotify
+    libsecret
+    libuuid
+    libxkbcommon
+    mesa
+    nspr
+    nss
+    pango
+    stdenv.cc.cc.lib
+    systemd
+    vulkan-loader
+    xorg.libX11
+    xorg.libXScrnSaver
+    xorg.libXcomposite
+    xorg.libXcursor
+    xorg.libXdamage
+    xorg.libXext
+    xorg.libXfixes
+    xorg.libXi
+    xorg.libXrandr
+    xorg.libXrender
+    xorg.libXtst
+    xorg.libxcb
+    xorg.libxshmfence
+    xorg.libxkbfile
+    zlib
+  ];
+
+  desktopItem = makeDesktopItem {
+    name = "antigravity";
+    desktopName = "Google Antigravity";
+    comment = "Next-generation agentic IDE";
+    exec = "antigravity --enable-features=UseOzonePlatform,WaylandWindowDecorations --ozone-platform-hint=auto %U";
+    icon = "antigravity";
+    categories = [ "Development" "IDE" ];
+    startupNotify = true;
+    startupWMClass = "Antigravity";
+    mimeTypes = [
+      "x-scheme-handler/antigravity"
+      "text/plain"
+    ];
+  };
+
+  meta = with lib; {
+    description = "Google Antigravity - Next-generation agentic IDE";
+    homepage = "https://antigravity.google";
+    license = licenses.unfree;
+    platforms = platforms.linux;
+    maintainers = [ ];
+  };
+
+  # ── FHS variant (default) ──────────────────────────────────
+
+  # Extract the upstream tarball without modification
   antigravity-unwrapped = stdenv.mkDerivation {
     inherit pname version src;
 
@@ -92,61 +165,14 @@ let
       runHook postInstall
     '';
 
-    meta = with lib; {
-      description = "Google Antigravity - Next-generation agentic IDE";
-      homepage = "https://antigravity.google";
-      license = licenses.unfree;
-      platforms = platforms.linux;
-      maintainers = [ ];
-    };
+    inherit meta;
   };
 
   # FHS environment for running Antigravity
   fhs = buildFHSEnv {
     name = "antigravity-fhs";
 
-    targetPkgs = pkgs:
-      (with pkgs; [
-        alsa-lib
-        at-spi2-atk
-        at-spi2-core
-        atk
-        cairo
-        cups
-        dbus
-        expat
-        glib
-        gtk3
-        libdrm
-        libgbm
-        libglvnd
-        libnotify
-        libsecret
-        libuuid
-        libxkbcommon
-        mesa
-        nspr
-        nss
-        pango
-        stdenv.cc.cc.lib
-        systemd
-        vulkan-loader
-        xorg.libX11
-        xorg.libXScrnSaver
-        xorg.libXcomposite
-        xorg.libXcursor
-        xorg.libXdamage
-        xorg.libXext
-        xorg.libXfixes
-        xorg.libXi
-        xorg.libXrandr
-        xorg.libXrender
-        xorg.libXtst
-        xorg.libxcb
-        xorg.libxshmfence
-        xorg.libxkbfile
-        zlib
-      ]) ++ lib.optional (browserPkg != null) browserPkg;
+    targetPkgs = _: runtimeLibs ++ lib.optional (browserPkg != null) browserPkg;
 
     runScript = writeShellScript "antigravity-wrapper" ''
       # Set Chrome paths to use our wrapper that forces user profile
@@ -157,47 +183,87 @@ let
       exec ${antigravity-unwrapped}/lib/antigravity/bin/antigravity "$@"
     '';
 
-    meta = antigravity-unwrapped.meta;
+    inherit meta;
   };
 
-  desktopItem = makeDesktopItem {
-    name = "antigravity";
-    desktopName = "Google Antigravity";
-    comment = "Next-generation agentic IDE";
-    exec = "antigravity --enable-features=UseOzonePlatform,WaylandWindowDecorations --ozone-platform-hint=auto %U";
-    icon = "antigravity";
-    categories = [ "Development" "IDE" ];
-    startupNotify = true;
-    startupWMClass = "Antigravity";
-    mimeTypes = [
-      "x-scheme-handler/antigravity"
-      "text/plain"
+  fhs-package = stdenv.mkDerivation {
+    inherit pname version meta;
+
+    dontUnpack = true;
+    dontBuild = true;
+
+    nativeBuildInputs = [ copyDesktopItems ];
+
+    desktopItems = [ desktopItem ];
+
+    installPhase = ''
+      runHook preInstall
+
+      mkdir -p $out/bin
+      ln -s ${fhs}/bin/antigravity-fhs $out/bin/antigravity
+
+      # Install icon from the app resources
+      mkdir -p $out/share/pixmaps $out/share/icons/hicolor/1024x1024/apps
+      cp ${antigravity-unwrapped}/lib/antigravity/resources/app/resources/linux/code.png $out/share/pixmaps/antigravity.png
+      cp ${antigravity-unwrapped}/lib/antigravity/resources/app/resources/linux/code.png $out/share/icons/hicolor/1024x1024/apps/antigravity.png
+
+      runHook postInstall
+    '';
+  };
+
+  # ── Non-FHS variant ────────────────────────────────────────
+  # Uses autoPatchelfHook instead of buildFHSEnv.
+  # This avoids the bubblewrap sandbox that sets the kernel
+  # "no new privileges" flag, which prevents sudo from working
+  # in the integrated terminal.
+
+  no-fhs-package = stdenv.mkDerivation {
+    inherit pname version src meta;
+
+    nativeBuildInputs = [
+      autoPatchelfHook
+      makeWrapper
+      copyDesktopItems
     ];
+
+    buildInputs = runtimeLibs;
+
+    # Libraries loaded via dlopen at runtime (e.g. GPU drivers)
+    runtimeDependencies = runtimeLibs;
+
+    # The Microsoft Authentication extension bundles libmsalruntime.so which
+    # links against webkit2gtk and libsoup. These are large optional deps
+    # that the FHS variant doesn't include either — ignore them.
+    autoPatchelfIgnoreMissingDeps = [
+      "libwebkit2gtk-4.1.so.0"
+      "libsoup-3.0.so.0"
+    ];
+
+    dontBuild = true;
+    dontConfigure = true;
+
+    desktopItems = [ desktopItem ];
+
+    installPhase = ''
+      runHook preInstall
+
+      mkdir -p $out/lib/antigravity
+      cp -r ./* $out/lib/antigravity/
+
+      mkdir -p $out/bin
+      makeWrapper $out/lib/antigravity/bin/antigravity $out/bin/antigravity \
+        --set CHROME_BIN ${chrome-wrapper} \
+        --set CHROME_PATH ${chrome-wrapper} \
+        --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath runtimeLibs}"
+
+      # Install icon from the app resources
+      mkdir -p $out/share/pixmaps $out/share/icons/hicolor/1024x1024/apps
+      cp $out/lib/antigravity/resources/app/resources/linux/code.png $out/share/pixmaps/antigravity.png
+      cp $out/lib/antigravity/resources/app/resources/linux/code.png $out/share/icons/hicolor/1024x1024/apps/antigravity.png
+
+      runHook postInstall
+    '';
   };
+
 in
-stdenv.mkDerivation {
-  inherit pname version;
-
-  dontUnpack = true;
-  dontBuild = true;
-
-  nativeBuildInputs = [ copyDesktopItems ];
-
-  desktopItems = [ desktopItem ];
-
-  installPhase = ''
-    runHook preInstall
-
-    mkdir -p $out/bin
-    ln -s ${fhs}/bin/antigravity-fhs $out/bin/antigravity
-
-    # Install icon from the app resources
-    mkdir -p $out/share/pixmaps $out/share/icons/hicolor/1024x1024/apps
-    cp ${antigravity-unwrapped}/lib/antigravity/resources/app/resources/linux/code.png $out/share/pixmaps/antigravity.png
-    cp ${antigravity-unwrapped}/lib/antigravity/resources/app/resources/linux/code.png $out/share/icons/hicolor/1024x1024/apps/antigravity.png
-
-    runHook postInstall
-  '';
-
-  meta = antigravity-unwrapped.meta;
-}
+  if useFHS then fhs-package else no-fhs-package
