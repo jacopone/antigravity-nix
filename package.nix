@@ -31,7 +31,20 @@
 , pango
 , systemd
 , vulkan-loader
-, xorg
+, libx11
+, libxscrnsaver
+, libxcomposite
+, libxcursor
+, libxdamage
+, libxext
+, libxfixes
+, libxi
+, libxrandr
+, libxrender
+, libxtst
+, libxcb
+, libxshmfence
+, libxkbfile
 , zlib
 , useFHS ? true
 , google-chrome ? null
@@ -105,20 +118,20 @@ let
     stdenv.cc.cc.lib
     systemd
     vulkan-loader
-    xorg.libX11
-    xorg.libXScrnSaver
-    xorg.libXcomposite
-    xorg.libXcursor
-    xorg.libXdamage
-    xorg.libXext
-    xorg.libXfixes
-    xorg.libXi
-    xorg.libXrandr
-    xorg.libXrender
-    xorg.libXtst
-    xorg.libxcb
-    xorg.libxshmfence
-    xorg.libxkbfile
+    libx11
+    libxscrnsaver
+    libxcomposite
+    libxcursor
+    libxdamage
+    libxext
+    libxfixes
+    libxi
+    libxrandr
+    libxrender
+    libxtst
+    libxcb
+    libxshmfence
+    libxkbfile
     zlib
   ];
 
