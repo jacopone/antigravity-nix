@@ -59,6 +59,7 @@
       # Overlay for easy integration into NixOS configurations
       overlays.default = final: prev: {
         google-antigravity = final.callPackage ./package.nix { };
+        google-antigravity-no-fhs = final.callPackage ./package.nix { useFHS = false; };
       };
     };
 }
