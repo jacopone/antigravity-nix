@@ -25,11 +25,10 @@
 , libsecret
 , libuuid
 , libxkbcommon
-, mesa
 , nspr
 , nss
 , pango
-, systemd
+, systemdLibs
 , vulkan-loader
 , libx11
 , libxscrnsaver
@@ -92,8 +91,17 @@ let
       "$@"
   '';
 
-  # Shared runtime library dependencies
-  runtimeLibs = [
+  # Libraries loaded via dlopen() at runtime
+  dlopenLibs = [
+    libglvnd
+    vulkan-loader
+    systemdLibs
+    libnotify
+    libsecret
+  ];
+
+  # Libraries linked normally (resolved by autoPatchelf via rpath)
+  linkedLibs = [
     alsa-lib
     at-spi2-atk
     at-spi2-core
@@ -106,18 +114,12 @@ let
     gtk3
     libdrm
     libgbm
-    libglvnd
-    libnotify
-    libsecret
     libuuid
     libxkbcommon
-    mesa
     nspr
     nss
     pango
     stdenv.cc.cc.lib
-    systemd
-    vulkan-loader
     libx11
     libxscrnsaver
     libxcomposite
@@ -134,6 +136,8 @@ let
     libxkbfile
     zlib
   ];
+
+  runtimeLibs = linkedLibs ++ dlopenLibs;
 
   desktopItem = makeDesktopItem {
     name = "antigravity";
@@ -184,7 +188,6 @@ let
   # FHS environment for running Antigravity
   fhs = buildFHSEnv {
     name = "antigravity-fhs";
-
     targetPkgs = _: runtimeLibs ++ lib.optional (browserPkg != null) browserPkg;
 
     runScript = writeShellScript "antigravity-wrapper" ''
@@ -241,15 +244,14 @@ let
 
     buildInputs = runtimeLibs;
 
-    # Libraries loaded via dlopen at runtime (e.g. GPU drivers)
-    runtimeDependencies = runtimeLibs;
+    runtimeDependencies = dlopenLibs;
 
-    # The Microsoft Authentication extension bundles libmsalruntime.so which
-    # links against webkit2gtk and libsoup. These are large optional deps
-    # that the FHS variant doesn't include either — ignore them.
+    # Optional deps from the bundled Microsoft Authentication extension
     autoPatchelfIgnoreMissingDeps = [
       "libwebkit2gtk-4.1.so.0"
       "libsoup-3.0.so.0"
+      "libcurl.so.4"
+      "libcrypto.so.3"
     ];
 
     dontBuild = true;
@@ -266,8 +268,7 @@ let
       mkdir -p $out/bin
       makeWrapper $out/lib/antigravity/bin/antigravity $out/bin/antigravity \
         --set CHROME_BIN ${chrome-wrapper} \
-        --set CHROME_PATH ${chrome-wrapper} \
-        --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath runtimeLibs}"
+        --set CHROME_PATH ${chrome-wrapper}
 
       # Install icon from the app resources
       mkdir -p $out/share/pixmaps $out/share/icons/hicolor/1024x1024/apps
