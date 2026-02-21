@@ -92,6 +92,32 @@ Add to your `flake.nix`:
 }
 ```
 
+## Package Variants
+
+Two packaging strategies are available:
+
+| Variant | Strategy | Trade-off |
+|---|---|---|
+| `default` / `google-antigravity` | `buildFHSEnv` + bubblewrap | Sandboxed, but inherits `no_new_privileges` restrictions |
+| `google-antigravity-no-fhs` | `autoPatchelfHook` | No sandbox, full system integration |
+
+The **default** uses `buildFHSEnv` to create an isolated FHS environment via bubblewrap. This is the most compatible approach, but the sandbox sets the kernel's `no_new_privileges` flag, which prevents privilege escalation (`sudo`, `pkexec`) and can cause issues with nested namespaces.
+
+The **no-fhs** variant uses `autoPatchelfHook` to patch ELF binaries directly, the same approach used by VS Code in nixpkgs. It runs natively on NixOS without sandboxing.
+
+```nix
+# Use the no-fhs variant
+home.packages = [
+  antigravity-nix.packages.${system}.google-antigravity-no-fhs
+];
+```
+
+Or via override:
+
+```nix
+google-antigravity.override { useFHS = false; }
+```
+
 ## Usage
 
 ```bash
