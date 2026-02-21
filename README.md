@@ -118,6 +118,16 @@ Or via override:
 google-antigravity.override { useFHS = false; }
 ```
 
+### Chrome Profile Isolation
+
+By default, Antigravity uses your system Chrome profile (`~/.config/google-chrome`), giving it access to your installed extensions. To run with an isolated Chrome profile instead (e.g., when testing untrusted apps):
+
+```nix
+google-antigravity.override { useSystemChromeProfile = false; }
+```
+
+This omits the `--user-data-dir` and `--profile-directory` flags, letting Chrome manage its own profile independently. Works with both FHS and non-FHS variants.
+
 ## Usage
 
 ```bash

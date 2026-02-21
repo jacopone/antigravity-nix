@@ -46,6 +46,7 @@
 , libxkbfile
 , zlib
 , useFHS ? true
+, useSystemChromeProfile ? true
 , google-chrome ? null
 }:
 
@@ -74,7 +75,11 @@ let
     sha256 = "sha256-TH/kjJVOTSVcXT6kx08Wikpxh/0r7tsiNCPLV0gcljg=";
   };
 
-  # Create a browser wrapper that uses the user's existing profile
+  # Create a browser wrapper
+  # When useSystemChromeProfile is true (default), forces use of the user's
+  # existing Chrome profile so extensions are available to Antigravity.
+  # When false, omits profile flags so Chrome runs with its own default
+  # behavior, isolating Antigravity from the user's main profile.
   chrome-wrapper = writeShellScript "${browserCommand}-with-profile" ''
     set -euo pipefail
 
@@ -86,8 +91,7 @@ let
     fi
 
     exec "$browser_cmd" \
-      --user-data-dir="${browserProfileDir}" \
-      --profile-directory=Default \
+      ${lib.optionalString useSystemChromeProfile ''--user-data-dir="${browserProfileDir}" --profile-directory=Default''} \
       "$@"
   '';
 
