@@ -6,26 +6,22 @@
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
-    flake-utils.lib.eachDefaultSystem (system:
-      let
+  outputs = {
+    nixpkgs,
+    flake-utils,
+    ...
+  }:
+    flake-utils.lib.eachDefaultSystem (
+      system: let
         pkgs = import nixpkgs {
           inherit system;
           config.allowUnfree = true;
         };
-      in
-      {
+      in {
         packages = {
-          default = pkgs.callPackage ./package.nix { };
-          google-antigravity = pkgs.callPackage ./package.nix { };
-          google-antigravity-no-fhs = pkgs.callPackage ./package.nix { useFHS = false; };
-        };
-
-        apps = {
-          default = {
-            type = "app";
-            program = "${self.packages.${system}.default}/bin/antigravity";
-          };
+          default = pkgs.callPackage ./package.nix {};
+          google-antigravity = pkgs.callPackage ./package.nix {};
+          google-antigravity-no-fhs = pkgs.callPackage ./package.nix {useFHS = false;};
         };
 
         # Development shell for working on this flake
@@ -52,14 +48,15 @@
           '';
         };
       }
-    ) // {
+    )
+    // {
       # Version information for auto-update
       version = "1.18.4-5780041996042240";
 
       # Overlay for easy integration into NixOS configurations
       overlays.default = final: prev: {
-        google-antigravity = final.callPackage ./package.nix { };
-        google-antigravity-no-fhs = final.callPackage ./package.nix { useFHS = false; };
+        google-antigravity = final.callPackage ./package.nix {};
+        google-antigravity-no-fhs = final.callPackage ./package.nix {useFHS = false;};
       };
     };
 }
