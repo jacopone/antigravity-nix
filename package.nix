@@ -204,6 +204,14 @@
       mkdir -p $out/lib/antigravity
       cp -r ./* $out/lib/antigravity/
 
+      # Provide a dummy tunnel script to avoid ENOENT errors when running 'antigravity tunnel'
+      cat <<'EOF' > $out/lib/antigravity/bin/antigravity-tunnel
+      #!/usr/bin/env bash
+      echo "Remote tunneling is not supported in the Linux package of Google Antigravity because the required proprietary binary is not bundled." >&2
+      exit 1
+      EOF
+      chmod +x $out/lib/antigravity/bin/antigravity-tunnel
+
       runHook postInstall
     '';
 
@@ -312,6 +320,14 @@
 
       mkdir -p $out/lib/antigravity
       cp -r ./* $out/lib/antigravity/
+
+      # Provide a dummy tunnel script to avoid ENOENT errors when running 'antigravity tunnel'
+      cat <<'EOF' > $out/lib/antigravity/bin/antigravity-tunnel
+      #!/usr/bin/env bash
+      echo "Remote tunneling is not supported in the Linux package of Google Antigravity because the required proprietary binary is not bundled." >&2
+      exit 1
+      EOF
+      chmod +x $out/lib/antigravity/bin/antigravity-tunnel
 
       mkdir -p $out/bin
       makeWrapper $out/lib/antigravity/bin/antigravity $out/bin/antigravity \
