@@ -1,74 +1,82 @@
-{ lib
-, stdenv
-, fetchurl
-, buildFHSEnv
-, autoPatchelfHook
-, makeDesktopItem
-, copyDesktopItems
-, makeWrapper
-, writeShellScript
-, alsa-lib
-, at-spi2-atk
-, at-spi2-core
-, atk
-, cairo
-, chromium
-, cups
-, dbus
-, expat
-, glib
-, gtk3
-, libdrm
-, libgbm
-, libglvnd
-, libnotify
-, libsecret
-, libuuid
-, libxkbcommon
-, nspr
-, nss
-, pango
-, systemdLibs
-, vulkan-loader
-, libx11
-, libxscrnsaver
-, libxcomposite
-, libxcursor
-, libxdamage
-, libxext
-, libxfixes
-, libxi
-, libxrandr
-, libxrender
-, libxtst
-, libxcb
-, libxshmfence
-, libxkbfile
-, zlib
-, useFHS ? true
-, useSystemChromeProfile ? true
-, google-chrome ? null
-}:
-
-let
+{
+  lib,
+  stdenv,
+  fetchurl,
+  buildFHSEnv,
+  autoPatchelfHook,
+  makeDesktopItem,
+  copyDesktopItems,
+  makeWrapper,
+  writeShellScript,
+  asar,
+  bash,
+  alsa-lib,
+  at-spi2-atk,
+  at-spi2-core,
+  atk,
+  cairo,
+  chromium,
+  cups,
+  dbus,
+  expat,
+  glib,
+  gtk3,
+  libdrm,
+  libgbm,
+  libglvnd,
+  libnotify,
+  libsecret,
+  libuuid,
+  libxkbcommon,
+  nspr,
+  nss,
+  pango,
+  systemdLibs,
+  vulkan-loader,
+  libx11,
+  libxscrnsaver,
+  libxcomposite,
+  libxcursor,
+  libxdamage,
+  libxext,
+  libxfixes,
+  libxi,
+  libxrandr,
+  libxrender,
+  libxtst,
+  libxcb,
+  libxshmfence,
+  libxkbfile,
+  zlib,
+  useFHS ? true,
+  useSystemChromeProfile ? true,
+  google-chrome ? null,
+}: let
   pname = "google-antigravity";
   version = "1.18.4-5780041996042240";
 
   isAarch64 = stdenv.hostPlatform.system == "aarch64-linux";
 
   browserPkg =
-    if isAarch64 then chromium
-    else if google-chrome != null then google-chrome
-    else throw ''
-      google-chrome is required on ${stdenv.hostPlatform.system} builds.
-      Make sure you have allowUnfree = true or pass a google-chrome package.
-    '';
+    if isAarch64
+    then chromium
+    else if google-chrome != null
+    then google-chrome
+    else
+      throw ''
+        google-chrome is required on ${stdenv.hostPlatform.system} builds.
+        Make sure you have allowUnfree = true or pass a google-chrome package.
+      '';
 
   browserCommand =
-    if isAarch64 then "chromium" else "google-chrome-stable";
+    if isAarch64
+    then "chromium"
+    else "google-chrome-stable";
 
   browserProfileDir =
-    if isAarch64 then "$HOME/.config/chromium" else "$HOME/.config/google-chrome";
+    if isAarch64
+    then "$HOME/.config/chromium"
+    else "$HOME/.config/google-chrome";
 
   src = fetchurl {
     url = "https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable/${version}/linux-x64/Antigravity.tar.gz";
@@ -147,14 +155,13 @@ let
     name = "antigravity";
     desktopName = "Google Antigravity";
     comment = "Next-generation agentic IDE";
-    exec = "antigravity --enable-features=UseOzonePlatform,WaylandWindowDecorations --ozone-platform-hint=auto %U";
+    exec = "antigravity --enable-features=UseOzonePlatform,WaylandWindowDecorations --ozone-platform-hint=auto --enable-wayland-ime=true --wayland-text-input-version=3 %U";
     icon = "antigravity";
-    categories = [ "Development" "IDE" ];
+    categories = ["Development" "IDE"];
     startupNotify = true;
     startupWMClass = "Antigravity";
     mimeTypes = [
       "x-scheme-handler/antigravity"
-      "text/plain"
     ];
   };
 
@@ -163,7 +170,8 @@ let
     homepage = "https://antigravity.google";
     license = licenses.unfree;
     platforms = platforms.linux;
-    maintainers = [ ];
+    maintainers = [];
+    mainProgram = "antigravity";
   };
 
   # ── FHS variant (default) ──────────────────────────────────
@@ -176,6 +184,19 @@ let
     dontConfigure = true;
     dontPatchELF = true;
     dontStrip = true;
+
+    nativeBuildInputs = [asar];
+
+    postPatch = ''
+      packed="resources/app/node_modules.asar"
+      unpacked="resources/app/node_modules"
+      asar extract "$packed" "$unpacked"
+      substituteInPlace $unpacked/@vscode/sudo-prompt/index.js \
+        --replace-fail "/usr/bin/pkexec" "/run/wrappers/bin/pkexec" \
+        --replace-fail "/bin/bash" "${bash}/bin/bash"
+      rm -rf "$packed"
+      ln -rs "$unpacked" "$packed"
+    '';
 
     installPhase = ''
       runHook preInstall
@@ -192,7 +213,18 @@ let
   # FHS environment for running Antigravity
   fhs = buildFHSEnv {
     name = "antigravity-fhs";
-    targetPkgs = _: runtimeLibs ++ lib.optional (browserPkg != null) browserPkg;
+    targetPkgs = pkgs:
+      runtimeLibs
+      ++ [
+        pkgs.udev
+        pkgs.libudev0-shim
+      ]
+      ++ lib.optional (browserPkg != null) browserPkg;
+
+    extraBwrapArgs = [
+      "--bind-try /etc/nixos/ /etc/nixos/"
+      "--ro-bind-try /etc/xdg/ /etc/xdg/"
+    ];
 
     runScript = writeShellScript "antigravity-wrapper" ''
       # Set Chrome paths to use our wrapper that forces user profile
@@ -212,9 +244,9 @@ let
     dontUnpack = true;
     dontBuild = true;
 
-    nativeBuildInputs = [ copyDesktopItems ];
+    nativeBuildInputs = [copyDesktopItems];
 
-    desktopItems = [ desktopItem ];
+    desktopItems = [desktopItem];
 
     installPhase = ''
       runHook preInstall
@@ -244,6 +276,7 @@ let
       autoPatchelfHook
       makeWrapper
       copyDesktopItems
+      asar
     ];
 
     buildInputs = runtimeLibs;
@@ -261,7 +294,18 @@ let
     dontBuild = true;
     dontConfigure = true;
 
-    desktopItems = [ desktopItem ];
+    postPatch = ''
+      packed="resources/app/node_modules.asar"
+      unpacked="resources/app/node_modules"
+      asar extract "$packed" "$unpacked"
+      substituteInPlace $unpacked/@vscode/sudo-prompt/index.js \
+        --replace-fail "/usr/bin/pkexec" "/run/wrappers/bin/pkexec" \
+        --replace-fail "/bin/bash" "${bash}/bin/bash"
+      rm -rf "$packed"
+      ln -rs "$unpacked" "$packed"
+    '';
+
+    desktopItems = [desktopItem];
 
     installPhase = ''
       runHook preInstall
@@ -282,6 +326,7 @@ let
       runHook postInstall
     '';
   };
-
 in
-  if useFHS then fhs-package else no-fhs-package
+  if useFHS
+  then fhs-package
+  else no-fhs-package
