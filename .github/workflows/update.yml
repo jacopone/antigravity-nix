@@ -2,8 +2,8 @@ name: Update Google Antigravity
 
 on:
   schedule:
-    # Run 3x weekly (Mon/Wed/Fri) at 9:00 UTC
-    - cron: '0 9 * * 1,3,5'
+    # Run daily at 07:00 UTC
+    - cron: '0 7 * * *'
   workflow_dispatch: # Allow manual trigger
 
 permissions:
