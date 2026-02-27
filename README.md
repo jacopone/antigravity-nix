@@ -9,7 +9,7 @@ Auto-updating Nix Flake for Google Antigravity -- zero configuration, multi-plat
 ## What This Provides
 
 - **FHS environment** wrapping the upstream binary with all required libraries
-- **Automated updates** via GitHub Actions (3x/week), with hash verification and build testing
+- **Automated updates** via GitHub Actions (daily at 0700 UTC), with hash verification and build testing
 - **Multi-platform** support for x86_64-linux, aarch64-linux, x86_64-darwin, and aarch64-darwin
 - **Version pinning** through tagged releases for reproducible builds
 
