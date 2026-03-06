@@ -11,7 +11,7 @@ on:
     branches:
       - master
     paths:
-      - 'package.nix'
+      - "package.nix"
   # Allow manual trigger
   workflow_dispatch:
 
@@ -81,7 +81,7 @@ jobs:
           ## Features
 
           - 🤖 Agentic IDE: Next-generation AI-powered development
-          - 🚀 Auto-updating: Updates 3x weekly  
+          - 🚀 Auto-updating: Updates daily at 07:00 UTC
           - 📦 Multi-platform: Linux & macOS (x86_64, aarch64)
           - 🔧 FHS Environment: Maximum compatibility"
 
