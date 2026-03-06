@@ -53,7 +53,7 @@
   google-chrome ? null,
 }: let
   pname = "google-antigravity";
-  version = "1.19.6-6514342219874304";
+  version = "1.20.3-6711822635106304";
 
   isAarch64 = stdenv.hostPlatform.system == "aarch64-linux";
 
@@ -80,7 +80,7 @@
 
   src = fetchurl {
     url = "https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable/${version}/linux-x64/Antigravity.tar.gz";
-    sha256 = "sha256-gFIsnWC8wEuxPUD6E2YB0YTcg/NruQZespzEVttMKeE=";
+    sha256 = "sha256-akxeo7/e82NtPAUNAURIFEJPFaPCLYL8nKhhUp4ZCTk=";
   };
 
   # Create a browser wrapper
