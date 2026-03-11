@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**antigravity-nix** is an auto-updating Nix Flake that packages Google Antigravity (a proprietary agentic IDE) for NixOS systems. It uses browser automation to detect new versions and automatically creates PRs with updates 3x weekly.
+**antigravity-nix** is an auto-updating Nix Flake that packages Google Antigravity (a proprietary agentic IDE) for NixOS systems. It uses browser automation to detect new versions and automatically creates PRs with updates daily at 07:00 UTC.
 
 **Key Challenge**: Antigravity is a binary distribution that requires a standard Linux filesystem layout, which conflicts with NixOS's unique structure. This is solved using `buildFHSEnv` to create an isolated FHS environment.
 
@@ -109,7 +109,7 @@ The `targetPkgs` list (package.nix:83-123) includes all libraries Antigravity ne
 
 The three workflows work together:
 
-1. **update.yml**: Runs 3x weekly, creates PRs, enables auto-merge
+1. **update.yml**: Runs daily at 07:00 UTC, creates PRs, enables auto-merge
 2. **release.yml**: Triggers on `package.nix` changes to main, creates GitHub releases
 3. **cleanup-branches.yml**: Deletes merged `auto-update/*` branches
 
