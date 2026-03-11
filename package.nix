@@ -51,6 +51,7 @@
   useFHS ? true,
   useSystemChromeProfile ? true,
   google-chrome ? null,
+  extraBwrapArgs ? [],
 }: let
   pname = "google-antigravity";
   version = "1.20.5-5474622945755136";
@@ -232,7 +233,8 @@
     extraBwrapArgs = [
       "--bind-try /etc/nixos/ /etc/nixos/"
       "--ro-bind-try /etc/xdg/ /etc/xdg/"
-    ];
+      "--ro-bind-try /etc/nixpkgs/ /etc/nixpkgs/"
+    ] ++ extraBwrapArgs;
 
     runScript = writeShellScript "antigravity-wrapper" ''
       # Set Chrome paths to use our wrapper that forces user profile
