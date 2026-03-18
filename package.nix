@@ -234,8 +234,6 @@
       "--bind-try /etc/nixos/ /etc/nixos/"
       "--ro-bind-try /etc/xdg/ /etc/xdg/"
       "--ro-bind-try /etc/nixpkgs/ /etc/nixpkgs/"
-      "--ro-bind-try /run/opengl-driver /run/opengl-driver"
-      "--ro-bind-try /run/opengl-driver-32 /run/opengl-driver-32"
     ] ++ extraBwrapArgs;
 
     runScript = writeShellScript "antigravity-wrapper" ''
