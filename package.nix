@@ -52,6 +52,7 @@
   useSystemChromeProfile ? true,
   google-chrome ? null,
   extraBwrapArgs ? [],
+  srcOverride ? null,
 }: let
   pname = "google-antigravity";
   version = "1.23.2-4781536860569600";
@@ -79,10 +80,14 @@
     then "$HOME/.config/chromium"
     else "$HOME/.config/google-chrome";
 
-  src = fetchurl {
-    url = "https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable/${version}/linux-x64/Antigravity.tar.gz";
-    sha256 = "sha256-UjKkBI/0+hVoXZqYG6T7pXPil/PvybdvY455S693VyU=";
-  };
+  finalSrc =
+    if srcOverride != null
+    then srcOverride
+    else
+      fetchurl {
+        url = "https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable/${version}/linux-x64/Antigravity.tar.gz";
+        sha256 = "sha256-UjKkBI/0+hVoXZqYG6T7pXPil/PvybdvY455S693VyU=";
+      };
 
   # Create a browser wrapper
   # When useSystemChromeProfile is true (default), forces use of the user's
@@ -179,7 +184,8 @@
 
   # Extract the upstream tarball without modification
   antigravity-unwrapped = stdenv.mkDerivation {
-    inherit pname version src;
+    inherit pname version;
+    src = finalSrc;
 
     dontBuild = true;
     dontConfigure = true;
@@ -280,7 +286,8 @@
   # in the integrated terminal.
 
   no-fhs-package = stdenv.mkDerivation {
-    inherit pname version src meta;
+    inherit pname version meta;
+    src = finalSrc;
 
     nativeBuildInputs = [
       autoPatchelfHook
