@@ -16,6 +16,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: read
 
 jobs:
   cleanup-pr-branch:
@@ -55,11 +56,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Fetch all history for all branches
-
       - name: Find and delete stale auto-update branches
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -86,9 +82,10 @@ jobs:
             echo ""
             echo "Checking branch: $BRANCH"
 
-            # Check if branch is merged into master
-            if git merge-base --is-ancestor "origin/$BRANCH" origin/master 2>/dev/null; then
-              echo "  ✓ Branch is merged into master"
+            # Check via PR API (handles squash, rebase, and merge-commit strategies)
+            MERGED_PR=$(gh pr list --repo "$REPO" --head "$BRANCH" --state merged --json number --jq '.[0].number')
+            if [ -n "$MERGED_PR" ]; then
+              echo "  ✓ PR #$MERGED_PR was merged"
 
               if [ "$DRY_RUN" = "true" ]; then
                 echo "  [DRY RUN] Would delete: $BRANCH"
@@ -103,7 +100,7 @@ jobs:
                 fi
               fi
             else
-              echo "  ⊘ Branch not merged yet, keeping it"
+              echo "  ⊘ No merged PR found for this branch, keeping it"
               SKIPPED=$((SKIPPED + 1))
             fi
 
