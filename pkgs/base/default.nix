@@ -20,7 +20,9 @@
   dbus,
   expat,
   glib,
+  gsettings-desktop-schemas,
   gtk3,
+  mesa,
   libdrm,
   libgbm,
   libglvnd,
@@ -102,6 +104,7 @@ let
   # Libraries loaded via dlopen() at runtime
   dlopenLibs = [
     libglvnd
+    mesa
     vulkan-loader
     systemdLibs
     libnotify
@@ -249,6 +252,8 @@ let
     ++ extraBwrapArgs;
 
     runScript = writeShellScript "antigravity-wrapper" ''
+      export XDG_DATA_DIRS=${gsettings-desktop-schemas}/share/gsettings-schemas/${gsettings-desktop-schemas.name}:${gtk3}/share/gsettings-schemas/${gtk3.name}:''${XDG_DATA_DIRS:-/usr/share}
+
       # Set Chrome paths to use our wrapper that forces user profile
       # This ensures extensions installed in user's Chrome profile are available
       export CHROME_BIN=${chrome-wrapper}
@@ -360,7 +365,10 @@ let
       mkdir -p $out/bin
       makeWrapper $out/lib/antigravity/antigravity $out/bin/antigravity \
         --set CHROME_BIN ${chrome-wrapper} \
-        --set CHROME_PATH ${chrome-wrapper}
+        --set CHROME_PATH ${chrome-wrapper} \
+        --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath dlopenLibs}" \
+        --prefix XDG_DATA_DIRS : "${gsettings-desktop-schemas}/share/gsettings-schemas/${gsettings-desktop-schemas.name}:${gtk3}/share/gsettings-schemas/${gtk3.name}" \
+        --add-flags "\''${NIXOS_OZONE_WL:+--enable-features=UseOzonePlatform,WaylandWindowDecorations --ozone-platform-hint=auto --enable-wayland-ime=true --wayland-text-input-version=3}"
 
       # Install icon from the app resources
       mkdir -p $out/share/pixmaps $out/share/icons/hicolor/1024x1024/apps
