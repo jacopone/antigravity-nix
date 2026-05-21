@@ -54,8 +54,8 @@
   extraBwrapArgs ? [],
   srcOverride ? null,
 }: let
-  pname = "google-antigravity";
-  version = "1.23.2-4781536860569600";
+  pname = "google-antigravity-ide";
+  version = "2.0.1-4861014005645312";
 
   isAarch64 = stdenv.hostPlatform.system == "aarch64-linux";
 
@@ -85,8 +85,9 @@
     then srcOverride
     else
       fetchurl {
-        url = "https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable/${version}/linux-x64/Antigravity.tar.gz";
-        sha256 = "sha256-UjKkBI/0+hVoXZqYG6T7pXPil/PvybdvY455S693VyU=";
+        name = "Antigravity_IDE.tar.gz";
+        url = "https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable/${version}/linux-x64/Antigravity%20IDE.tar.gz";
+        sha256 = lib.fakeSha256;
       };
 
   # Create a browser wrapper
@@ -158,14 +159,14 @@
   runtimeLibs = linkedLibs ++ dlopenLibs;
 
   desktopItem = makeDesktopItem {
-    name = "antigravity";
-    desktopName = "Google Antigravity";
+    name = "antigravity-ide";
+    desktopName = "Google Antigravity IDE";
     comment = "Next-generation agentic IDE";
-    exec = "antigravity --enable-features=UseOzonePlatform,WaylandWindowDecorations --ozone-platform-hint=auto --enable-wayland-ime=true --wayland-text-input-version=3 %U";
-    icon = "antigravity";
+    exec = "antigravity-ide --enable-features=UseOzonePlatform,WaylandWindowDecorations --ozone-platform-hint=auto --enable-wayland-ime=true --wayland-text-input-version=3 %U";
+    icon = "antigravity-ide";
     categories = ["Development" "IDE"];
     startupNotify = true;
-    startupWMClass = "Antigravity";
+    startupWMClass = "Antigravity IDE";
     mimeTypes = [
       "x-scheme-handler/antigravity"
     ];
@@ -177,7 +178,7 @@
     license = licenses.unfree;
     platforms = platforms.linux;
     maintainers = [];
-    mainProgram = "antigravity";
+    mainProgram = "antigravity-ide";
   };
 
   # ── FHS variant (default) ──────────────────────────────────
@@ -208,16 +209,16 @@
     installPhase = ''
       runHook preInstall
 
-      mkdir -p $out/lib/antigravity
-      cp -r ./* $out/lib/antigravity/
+      mkdir -p $out/lib/antigravity-ide
+      cp -r ./* $out/lib/antigravity-ide/
 
-      # Provide a dummy tunnel script to avoid ENOENT errors when running 'antigravity tunnel'
-      cat <<'EOF' > $out/lib/antigravity/bin/antigravity-tunnel
+      # Provide a dummy tunnel script to avoid ENOENT errors when running 'antigravity-ide tunnel'
+      cat <<'EOF' > $out/lib/antigravity-ide/bin/antigravity-tunnel
       #!/usr/bin/env bash
-      echo "Remote tunneling is not supported in the Linux package of Google Antigravity because the required proprietary binary is not bundled." >&2
+      echo "Remote tunneling is not supported in the Linux package of Google Antigravity IDE because the required proprietary binary is not bundled." >&2
       exit 1
       EOF
-      chmod +x $out/lib/antigravity/bin/antigravity-tunnel
+      chmod +x $out/lib/antigravity-ide/bin/antigravity-tunnel
 
       runHook postInstall
     '';
@@ -248,7 +249,7 @@
       export CHROME_BIN=${chrome-wrapper}
       export CHROME_PATH=${chrome-wrapper}
 
-      exec ${antigravity-unwrapped}/lib/antigravity/bin/antigravity "$@"
+      exec ${antigravity-unwrapped}/lib/antigravity-ide/bin/antigravity-ide "$@"
     '';
 
     inherit meta;
@@ -268,12 +269,12 @@
       runHook preInstall
 
       mkdir -p $out/bin
-      ln -s ${fhs}/bin/antigravity-fhs $out/bin/antigravity
+      ln -s ${fhs}/bin/antigravity-fhs $out/bin/antigravity-ide
 
       # Install icon from the app resources
       mkdir -p $out/share/pixmaps $out/share/icons/hicolor/1024x1024/apps
-      cp ${antigravity-unwrapped}/lib/antigravity/resources/app/resources/linux/code.png $out/share/pixmaps/antigravity.png
-      cp ${antigravity-unwrapped}/lib/antigravity/resources/app/resources/linux/code.png $out/share/icons/hicolor/1024x1024/apps/antigravity.png
+      cp "${antigravity-unwrapped}/lib/antigravity-ide/resources/app/resources/linux/code.png" $out/share/pixmaps/antigravity-ide.png
+      cp "${antigravity-unwrapped}/lib/antigravity-ide/resources/app/resources/linux/code.png" $out/share/icons/hicolor/1024x1024/apps/antigravity-ide.png
 
       runHook postInstall
     '';
@@ -327,26 +328,26 @@
     installPhase = ''
       runHook preInstall
 
-      mkdir -p $out/lib/antigravity
-      cp -r ./* $out/lib/antigravity/
+      mkdir -p $out/lib/antigravity-ide
+      cp -r ./* $out/lib/antigravity-ide/
 
-      # Provide a dummy tunnel script to avoid ENOENT errors when running 'antigravity tunnel'
-      cat <<'EOF' > $out/lib/antigravity/bin/antigravity-tunnel
+      # Provide a dummy tunnel script to avoid ENOENT errors when running 'antigravity-ide tunnel'
+      cat <<'EOF' > $out/lib/antigravity-ide/bin/antigravity-tunnel
       #!/usr/bin/env bash
-      echo "Remote tunneling is not supported in the Linux package of Google Antigravity because the required proprietary binary is not bundled." >&2
+      echo "Remote tunneling is not supported in the Linux package of Google Antigravity IDE because the required proprietary binary is not bundled." >&2
       exit 1
       EOF
-      chmod +x $out/lib/antigravity/bin/antigravity-tunnel
+      chmod +x $out/lib/antigravity-ide/bin/antigravity-tunnel
 
       mkdir -p $out/bin
-      makeWrapper $out/lib/antigravity/bin/antigravity $out/bin/antigravity \
+      makeWrapper $out/lib/antigravity-ide/bin/antigravity-ide $out/bin/antigravity-ide \
         --set CHROME_BIN ${chrome-wrapper} \
         --set CHROME_PATH ${chrome-wrapper}
 
       # Install icon from the app resources
       mkdir -p $out/share/pixmaps $out/share/icons/hicolor/1024x1024/apps
-      cp $out/lib/antigravity/resources/app/resources/linux/code.png $out/share/pixmaps/antigravity.png
-      cp $out/lib/antigravity/resources/app/resources/linux/code.png $out/share/icons/hicolor/1024x1024/apps/antigravity.png
+      cp "$out/lib/antigravity-ide/resources/app/resources/linux/code.png" $out/share/pixmaps/antigravity-ide.png
+      cp "$out/lib/antigravity-ide/resources/app/resources/linux/code.png" $out/share/icons/hicolor/1024x1024/apps/antigravity-ide.png
 
       runHook postInstall
     '';

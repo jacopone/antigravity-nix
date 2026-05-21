@@ -5,41 +5,46 @@ set -euo pipefail
 
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+RED='\033[0;31m'
 NC='\033[0m'
 
 echo "Checking Antigravity versions..."
+echo ""
 
-# Get current version
-CURRENT=$(grep -oP 'version = "\K[^"]+' flake.nix | head -1)
-echo -e "${GREEN}Current version:${NC} $CURRENT"
+check_app() {
+    local name="$1"
+    local path="$2"
+    local url="$3"
 
-# Get latest version
-echo "Fetching latest version from antigravity.google..."
-if command -v node &>/dev/null && [[ -f "scripts/scrape-version.js" ]]; then
-    if node -e "require('playwright-chromium')" 2>/dev/null; then
-        LATEST=$(CHROME_BIN=${CHROME_BIN:-/run/current-system/sw/bin/google-chrome-stable} node scripts/scrape-version.js)
-        if [[ -n "$LATEST" ]] && [[ "$LATEST" =~ ^[0-9.]+-[0-9]+$ ]]; then
-            echo -e "${GREEN}Latest version:${NC}  $LATEST"
-            
-            if [[ "$CURRENT" == "$LATEST" ]]; then
-                echo -e "\n${GREEN}✓ Already at latest version!${NC}"
-                exit 0
-            else
-                echo -e "\n${YELLOW}⚠ Update available!${NC}"
-                echo "  Current: $CURRENT"
-                echo "  Latest:  $LATEST"
-                exit 1
-            fi
+    echo "--- $name ---"
+    
+    # Get current version
+    local current
+    current=$(grep -oP 'version = "\K[^"]+' "$path" | head -1)
+    echo -e "Current version: $current"
+
+    # Get latest version
+    local latest
+    if [[ "$name" == "CLI" ]]; then
+        latest=$(curl -sL "$url" | jq -r '.url | match("antigravity-cli/([0-9.]+-[0-9]+)/").captures[0].string' 2>/dev/null || echo "")
+    else
+        latest=$(curl -sL "$url" | jq -r '.[0] | .version + "-" + .execution_id' 2>/dev/null || echo "")
+    fi
+    
+    if [[ -n "$latest" && "$latest" != "null-null" ]]; then
+        echo -e "Latest version:  $latest"
+        
+        if [[ "$current" == "$latest" ]]; then
+            echo -e "${GREEN}✓ Already at latest version!${NC}"
         else
-            echo "Error: Could not parse version from scraper output"
-            exit 1
+            echo -e "${YELLOW}⚠ Update available!${NC}"
         fi
     else
-        echo "Error: playwright-chromium not installed"
-        echo "Install with: npm install -g playwright-chromium && npx playwright install chromium"
-        exit 1
+        echo -e "${RED}Error: Could not parse version from API${NC}"
     fi
-else
-    echo "Error: Node.js or scrape-version.js not found"
-    exit 1
-fi
+    echo ""
+}
+
+check_app "Base" "pkgs/base/default.nix" "https://antigravity-auto-updater-974169037036.us-central1.run.app/releases"
+check_app "CLI" "pkgs/cli/default.nix" "https://antigravity-cli-auto-updater-974169037036.us-central1.run.app/manifests/linux_amd64.json"
+check_app "IDE" "pkgs/ide/default.nix" "https://antigravity-ide-auto-updater-974169037036.us-central1.run.app/releases"
