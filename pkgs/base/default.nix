@@ -51,49 +51,39 @@
   useFHS ? true,
   useSystemChromeProfile ? true,
   google-chrome ? null,
-  extraBwrapArgs ? [],
+  extraBwrapArgs ? [ ],
   srcOverride ? null,
-}: let
+}:
+let
   pname = "google-antigravity";
   version = "2.0.1-6566078776737792";
 
   isAarch64 = stdenv.hostPlatform.system == "aarch64-linux";
 
   browserPkg =
-    if isAarch64
-    then chromium
-    else if google-chrome != null
-    then google-chrome
+    if isAarch64 then
+      chromium
+    else if google-chrome != null then
+      google-chrome
     else
       throw ''
         google-chrome is required on ${stdenv.hostPlatform.system} builds.
         Make sure you have allowUnfree = true or pass a google-chrome package.
       '';
 
-  browserCommand =
-    if isAarch64
-    then "chromium"
-    else "google-chrome-stable";
+  browserCommand = if isAarch64 then "chromium" else "google-chrome-stable";
 
-  browserProfileDir =
-    if isAarch64
-    then "$HOME/.config/chromium"
-    else "$HOME/.config/google-chrome";
+  browserProfileDir = if isAarch64 then "$HOME/.config/chromium" else "$HOME/.config/google-chrome";
 
   finalSrc =
-    if srcOverride != null
-    then srcOverride
+    if srcOverride != null then
+      srcOverride
     else
       fetchurl {
         url = "https://storage.googleapis.com/antigravity-public/antigravity-hub/${version}/linux-x64/Antigravity.tar.gz";
         sha256 = "sha256-Byfh9WlhttI0eUHyeNppzGwX3jvv6YhSSEjNFnOA6as=";
       };
 
-  # Create a browser wrapper
-  # When useSystemChromeProfile is true (default), forces use of the user's
-  # existing Chrome profile so extensions are available to Antigravity.
-  # When false, omits profile flags so Chrome runs with its own default
-  # behavior, isolating Antigravity from the user's main profile.
   chrome-wrapper = writeShellScript "${browserCommand}-with-profile" ''
     set -euo pipefail
 
@@ -163,7 +153,10 @@
     comment = "Next-generation agentic IDE";
     exec = "antigravity --enable-features=UseOzonePlatform,WaylandWindowDecorations --ozone-platform-hint=auto --enable-wayland-ime=true --wayland-text-input-version=3 %U";
     icon = "antigravity";
-    categories = ["Development" "IDE"];
+    categories = [
+      "Development"
+      "IDE"
+    ];
     startupNotify = true;
     startupWMClass = "Antigravity";
     mimeTypes = [
@@ -176,7 +169,7 @@
     homepage = "https://antigravity.google";
     license = licenses.unfree;
     platforms = platforms.linux;
-    maintainers = [];
+    maintainers = [ ];
     mainProgram = "antigravity";
   };
 
@@ -192,17 +185,27 @@
     dontPatchELF = true;
     dontStrip = true;
 
-    nativeBuildInputs = [asar];
+    nativeBuildInputs = [ asar ];
 
     postPatch = ''
       packed="resources/app/node_modules.asar"
       unpacked="resources/app/node_modules"
-      asar extract "$packed" "$unpacked"
-      substituteInPlace $unpacked/@vscode/sudo-prompt/index.js \
-        --replace-fail "/usr/bin/pkexec" "/run/wrappers/bin/pkexec" \
-        --replace-fail "/bin/bash" "${bash}/bin/bash"
-      rm -rf "$packed"
-      ln -rs "$unpacked" "$packed"
+      if [ -f "$packed" ]; then
+        asar extract "$packed" "$unpacked"
+        if [ -f "$unpacked/@vscode/sudo-prompt/index.js" ]; then
+          substituteInPlace $unpacked/@vscode/sudo-prompt/index.js \
+            --replace-fail "/usr/bin/pkexec" "/run/wrappers/bin/pkexec" \
+            --replace-fail "/bin/bash" "${bash}/bin/bash"
+        fi
+        rm -rf "$packed"
+        ln -rs "$unpacked" "$packed"
+      elif [ -d "$unpacked" ]; then
+        if [ -f "$unpacked/@vscode/sudo-prompt/index.js" ]; then
+          substituteInPlace $unpacked/@vscode/sudo-prompt/index.js \
+            --replace-fail "/usr/bin/pkexec" "/run/wrappers/bin/pkexec" \
+            --replace-fail "/bin/bash" "${bash}/bin/bash"
+        fi
+      fi
     '';
 
     installPhase = ''
@@ -212,6 +215,7 @@
       cp -r ./* $out/lib/antigravity/
 
       # Provide a dummy tunnel script to avoid ENOENT errors when running 'antigravity tunnel'
+      mkdir -p $out/lib/antigravity/bin
       cat <<'EOF' > $out/lib/antigravity/bin/antigravity-tunnel
       #!/usr/bin/env bash
       echo "Remote tunneling is not supported in the Linux package of Google Antigravity because the required proprietary binary is not bundled." >&2
@@ -228,7 +232,8 @@
   # FHS environment for running Antigravity
   fhs = buildFHSEnv {
     name = "antigravity-fhs";
-    targetPkgs = pkgs:
+    targetPkgs =
+      pkgs:
       runtimeLibs
       ++ [
         pkgs.udev
@@ -240,7 +245,8 @@
       "--bind-try /etc/nixos/ /etc/nixos/"
       "--ro-bind-try /etc/xdg/ /etc/xdg/"
       "--ro-bind-try /etc/nixpkgs/ /etc/nixpkgs/"
-    ] ++ extraBwrapArgs;
+    ]
+    ++ extraBwrapArgs;
 
     runScript = writeShellScript "antigravity-wrapper" ''
       # Set Chrome paths to use our wrapper that forces user profile
@@ -248,7 +254,7 @@
       export CHROME_BIN=${chrome-wrapper}
       export CHROME_PATH=${chrome-wrapper}
 
-      exec ${antigravity-unwrapped}/lib/antigravity/bin/antigravity "$@"
+      exec ${antigravity-unwrapped}/lib/antigravity/antigravity "$@"
     '';
 
     inherit meta;
@@ -260,9 +266,9 @@
     dontUnpack = true;
     dontBuild = true;
 
-    nativeBuildInputs = [copyDesktopItems];
+    nativeBuildInputs = [ copyDesktopItems ];
 
-    desktopItems = [desktopItem];
+    desktopItems = [ desktopItem ];
 
     installPhase = ''
       runHook preInstall
@@ -272,8 +278,10 @@
 
       # Install icon from the app resources
       mkdir -p $out/share/pixmaps $out/share/icons/hicolor/1024x1024/apps
-      cp ${antigravity-unwrapped}/lib/antigravity/resources/app/resources/linux/code.png $out/share/pixmaps/antigravity.png
-      cp ${antigravity-unwrapped}/lib/antigravity/resources/app/resources/linux/code.png $out/share/icons/hicolor/1024x1024/apps/antigravity.png
+      if [ -f "${antigravity-unwrapped}/lib/antigravity/resources/app/resources/linux/code.png" ]; then
+        cp ${antigravity-unwrapped}/lib/antigravity/resources/app/resources/linux/code.png $out/share/pixmaps/antigravity.png
+        cp ${antigravity-unwrapped}/lib/antigravity/resources/app/resources/linux/code.png $out/share/icons/hicolor/1024x1024/apps/antigravity.png
+      fi
 
       runHook postInstall
     '';
@@ -314,15 +322,25 @@
     postPatch = ''
       packed="resources/app/node_modules.asar"
       unpacked="resources/app/node_modules"
-      asar extract "$packed" "$unpacked"
-      substituteInPlace $unpacked/@vscode/sudo-prompt/index.js \
-        --replace-fail "/usr/bin/pkexec" "/run/wrappers/bin/pkexec" \
-        --replace-fail "/bin/bash" "${bash}/bin/bash"
-      rm -rf "$packed"
-      ln -rs "$unpacked" "$packed"
+      if [ -f "$packed" ]; then
+        asar extract "$packed" "$unpacked"
+        if [ -f "$unpacked/@vscode/sudo-prompt/index.js" ]; then
+          substituteInPlace $unpacked/@vscode/sudo-prompt/index.js \
+            --replace-fail "/usr/bin/pkexec" "/run/wrappers/bin/pkexec" \
+            --replace-fail "/bin/bash" "${bash}/bin/bash"
+        fi
+        rm -rf "$packed"
+        ln -rs "$unpacked" "$packed"
+      elif [ -d "$unpacked" ]; then
+        if [ -f "$unpacked/@vscode/sudo-prompt/index.js" ]; then
+          substituteInPlace $unpacked/@vscode/sudo-prompt/index.js \
+            --replace-fail "/usr/bin/pkexec" "/run/wrappers/bin/pkexec" \
+            --replace-fail "/bin/bash" "${bash}/bin/bash"
+        fi
+      fi
     '';
 
-    desktopItems = [desktopItem];
+    desktopItems = [ desktopItem ];
 
     installPhase = ''
       runHook preInstall
@@ -331,6 +349,7 @@
       cp -r ./* $out/lib/antigravity/
 
       # Provide a dummy tunnel script to avoid ENOENT errors when running 'antigravity tunnel'
+      mkdir -p $out/lib/antigravity/bin
       cat <<'EOF' > $out/lib/antigravity/bin/antigravity-tunnel
       #!/usr/bin/env bash
       echo "Remote tunneling is not supported in the Linux package of Google Antigravity because the required proprietary binary is not bundled." >&2
@@ -339,19 +358,19 @@
       chmod +x $out/lib/antigravity/bin/antigravity-tunnel
 
       mkdir -p $out/bin
-      makeWrapper $out/lib/antigravity/bin/antigravity $out/bin/antigravity \
+      makeWrapper $out/lib/antigravity/antigravity $out/bin/antigravity \
         --set CHROME_BIN ${chrome-wrapper} \
         --set CHROME_PATH ${chrome-wrapper}
 
       # Install icon from the app resources
       mkdir -p $out/share/pixmaps $out/share/icons/hicolor/1024x1024/apps
-      cp $out/lib/antigravity/resources/app/resources/linux/code.png $out/share/pixmaps/antigravity.png
-      cp $out/lib/antigravity/resources/app/resources/linux/code.png $out/share/icons/hicolor/1024x1024/apps/antigravity.png
+      if [ -f "$out/lib/antigravity/resources/app/resources/linux/code.png" ]; then
+        cp $out/lib/antigravity/resources/app/resources/linux/code.png $out/share/pixmaps/antigravity.png
+        cp $out/lib/antigravity/resources/app/resources/linux/code.png $out/share/icons/hicolor/1024x1024/apps/antigravity.png
+      fi
 
       runHook postInstall
     '';
   };
 in
-  if useFHS
-  then fhs-package
-  else no-fhs-package
+if useFHS then fhs-package else no-fhs-package

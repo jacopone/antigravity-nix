@@ -87,7 +87,7 @@
       fetchurl {
         name = "Antigravity_IDE.tar.gz";
         url = "https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable/${version}/linux-x64/Antigravity%20IDE.tar.gz";
-        sha256 = lib.fakeSha256;
+        sha256 = "sha256-dHFjqjqK+6SzFvl8QLSnXKRzall2ikFs0eiB5z7DHvk=";
       };
 
   # Create a browser wrapper
@@ -198,12 +198,22 @@
     postPatch = ''
       packed="resources/app/node_modules.asar"
       unpacked="resources/app/node_modules"
-      asar extract "$packed" "$unpacked"
-      substituteInPlace $unpacked/@vscode/sudo-prompt/index.js \
-        --replace-fail "/usr/bin/pkexec" "/run/wrappers/bin/pkexec" \
-        --replace-fail "/bin/bash" "${bash}/bin/bash"
-      rm -rf "$packed"
-      ln -rs "$unpacked" "$packed"
+      if [ -f "$packed" ]; then
+        asar extract "$packed" "$unpacked"
+        if [ -f "$unpacked/@vscode/sudo-prompt/index.js" ]; then
+          substituteInPlace $unpacked/@vscode/sudo-prompt/index.js \
+            --replace-fail "/usr/bin/pkexec" "/run/wrappers/bin/pkexec" \
+            --replace-fail "/bin/bash" "${bash}/bin/bash"
+        fi
+        rm -rf "$packed"
+        ln -rs "$unpacked" "$packed"
+      elif [ -d "$unpacked" ]; then
+        if [ -f "$unpacked/@vscode/sudo-prompt/index.js" ]; then
+          substituteInPlace $unpacked/@vscode/sudo-prompt/index.js \
+            --replace-fail "/usr/bin/pkexec" "/run/wrappers/bin/pkexec" \
+            --replace-fail "/bin/bash" "${bash}/bin/bash"
+        fi
+      fi
     '';
 
     installPhase = ''
@@ -213,6 +223,7 @@
       cp -r ./* $out/lib/antigravity-ide/
 
       # Provide a dummy tunnel script to avoid ENOENT errors when running 'antigravity-ide tunnel'
+      mkdir -p $out/lib/antigravity-ide/bin
       cat <<'EOF' > $out/lib/antigravity-ide/bin/antigravity-tunnel
       #!/usr/bin/env bash
       echo "Remote tunneling is not supported in the Linux package of Google Antigravity IDE because the required proprietary binary is not bundled." >&2
@@ -273,8 +284,10 @@
 
       # Install icon from the app resources
       mkdir -p $out/share/pixmaps $out/share/icons/hicolor/1024x1024/apps
-      cp "${antigravity-unwrapped}/lib/antigravity-ide/resources/app/resources/linux/code.png" $out/share/pixmaps/antigravity-ide.png
-      cp "${antigravity-unwrapped}/lib/antigravity-ide/resources/app/resources/linux/code.png" $out/share/icons/hicolor/1024x1024/apps/antigravity-ide.png
+      if [ -f "${antigravity-unwrapped}/lib/antigravity-ide/resources/app/resources/linux/code.png" ]; then
+        cp "${antigravity-unwrapped}/lib/antigravity-ide/resources/app/resources/linux/code.png" $out/share/pixmaps/antigravity-ide.png
+        cp "${antigravity-unwrapped}/lib/antigravity-ide/resources/app/resources/linux/code.png" $out/share/icons/hicolor/1024x1024/apps/antigravity-ide.png
+      fi
 
       runHook postInstall
     '';
@@ -315,12 +328,22 @@
     postPatch = ''
       packed="resources/app/node_modules.asar"
       unpacked="resources/app/node_modules"
-      asar extract "$packed" "$unpacked"
-      substituteInPlace $unpacked/@vscode/sudo-prompt/index.js \
-        --replace-fail "/usr/bin/pkexec" "/run/wrappers/bin/pkexec" \
-        --replace-fail "/bin/bash" "${bash}/bin/bash"
-      rm -rf "$packed"
-      ln -rs "$unpacked" "$packed"
+      if [ -f "$packed" ]; then
+        asar extract "$packed" "$unpacked"
+        if [ -f "$unpacked/@vscode/sudo-prompt/index.js" ]; then
+          substituteInPlace $unpacked/@vscode/sudo-prompt/index.js \
+            --replace-fail "/usr/bin/pkexec" "/run/wrappers/bin/pkexec" \
+            --replace-fail "/bin/bash" "${bash}/bin/bash"
+        fi
+        rm -rf "$packed"
+        ln -rs "$unpacked" "$packed"
+      elif [ -d "$unpacked" ]; then
+        if [ -f "$unpacked/@vscode/sudo-prompt/index.js" ]; then
+          substituteInPlace $unpacked/@vscode/sudo-prompt/index.js \
+            --replace-fail "/usr/bin/pkexec" "/run/wrappers/bin/pkexec" \
+            --replace-fail "/bin/bash" "${bash}/bin/bash"
+        fi
+      fi
     '';
 
     desktopItems = [desktopItem];
@@ -332,6 +355,7 @@
       cp -r ./* $out/lib/antigravity-ide/
 
       # Provide a dummy tunnel script to avoid ENOENT errors when running 'antigravity-ide tunnel'
+      mkdir -p $out/lib/antigravity-ide/bin
       cat <<'EOF' > $out/lib/antigravity-ide/bin/antigravity-tunnel
       #!/usr/bin/env bash
       echo "Remote tunneling is not supported in the Linux package of Google Antigravity IDE because the required proprietary binary is not bundled." >&2
@@ -346,8 +370,10 @@
 
       # Install icon from the app resources
       mkdir -p $out/share/pixmaps $out/share/icons/hicolor/1024x1024/apps
-      cp "$out/lib/antigravity-ide/resources/app/resources/linux/code.png" $out/share/pixmaps/antigravity-ide.png
-      cp "$out/lib/antigravity-ide/resources/app/resources/linux/code.png" $out/share/icons/hicolor/1024x1024/apps/antigravity-ide.png
+      if [ -f "$out/lib/antigravity-ide/resources/app/resources/linux/code.png" ]; then
+        cp "$out/lib/antigravity-ide/resources/app/resources/linux/code.png" $out/share/pixmaps/antigravity-ide.png
+        cp "$out/lib/antigravity-ide/resources/app/resources/linux/code.png" $out/share/icons/hicolor/1024x1024/apps/antigravity-ide.png
+      fi
 
       runHook postInstall
     '';
