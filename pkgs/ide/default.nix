@@ -53,38 +53,33 @@
   useFHS ? true,
   useSystemChromeProfile ? true,
   google-chrome ? null,
-  extraBwrapArgs ? [],
+  extraBwrapArgs ? [ ],
   srcOverride ? null,
-}: let
+}:
+let
   pname = "google-antigravity-ide";
   version = "2.0.1-4861014005645312";
 
   isAarch64 = stdenv.hostPlatform.system == "aarch64-linux";
 
   browserPkg =
-    if isAarch64
-    then chromium
-    else if google-chrome != null
-    then google-chrome
+    if isAarch64 then
+      chromium
+    else if google-chrome != null then
+      google-chrome
     else
       throw ''
         google-chrome is required on ${stdenv.hostPlatform.system} builds.
         Make sure you have allowUnfree = true or pass a google-chrome package.
       '';
 
-  browserCommand =
-    if isAarch64
-    then "chromium"
-    else "google-chrome-stable";
+  browserCommand = if isAarch64 then "chromium" else "google-chrome-stable";
 
-  browserProfileDir =
-    if isAarch64
-    then "$HOME/.config/chromium"
-    else "$HOME/.config/google-chrome";
+  browserProfileDir = if isAarch64 then "$HOME/.config/chromium" else "$HOME/.config/google-chrome";
 
   finalSrc =
-    if srcOverride != null
-    then srcOverride
+    if srcOverride != null then
+      srcOverride
     else
       fetchurl {
         name = "Antigravity_IDE.tar.gz";
@@ -92,11 +87,6 @@
         sha256 = "sha256-dHFjqjqK+6SzFvl8QLSnXKRzall2ikFs0eiB5z7DHvk=";
       };
 
-  # Create a browser wrapper
-  # When useSystemChromeProfile is true (default), forces use of the user's
-  # existing Chrome profile so extensions are available to Antigravity.
-  # When false, omits profile flags so Chrome runs with its own default
-  # behavior, isolating Antigravity from the user's main profile.
   chrome-wrapper = writeShellScript "${browserCommand}-with-profile" ''
     set -euo pipefail
 
@@ -167,7 +157,10 @@
     comment = "Next-generation agentic IDE";
     exec = "antigravity-ide --enable-features=UseOzonePlatform,WaylandWindowDecorations --ozone-platform-hint=auto --enable-wayland-ime=true --wayland-text-input-version=3 %U";
     icon = "antigravity-ide";
-    categories = ["Development" "IDE"];
+    categories = [
+      "Development"
+      "IDE"
+    ];
     startupNotify = true;
     startupWMClass = "Antigravity IDE";
     mimeTypes = [
@@ -180,7 +173,7 @@
     homepage = "https://antigravity.google";
     license = licenses.unfree;
     platforms = platforms.linux;
-    maintainers = [];
+    maintainers = [ ];
     mainProgram = "antigravity-ide";
   };
 
@@ -196,7 +189,7 @@
     dontPatchELF = true;
     dontStrip = true;
 
-    nativeBuildInputs = [asar];
+    nativeBuildInputs = [ asar ];
 
     postPatch = ''
       packed="resources/app/node_modules.asar"
@@ -243,7 +236,8 @@
   # FHS environment for running Antigravity
   fhs = buildFHSEnv {
     name = "antigravity-fhs";
-    targetPkgs = pkgs:
+    targetPkgs =
+      pkgs:
       runtimeLibs
       ++ [
         pkgs.udev
@@ -255,7 +249,8 @@
       "--bind-try /etc/nixos/ /etc/nixos/"
       "--ro-bind-try /etc/xdg/ /etc/xdg/"
       "--ro-bind-try /etc/nixpkgs/ /etc/nixpkgs/"
-    ] ++ extraBwrapArgs;
+    ]
+    ++ extraBwrapArgs;
 
     runScript = writeShellScript "antigravity-wrapper" ''
       export XDG_DATA_DIRS=${gsettings-desktop-schemas}/share/gsettings-schemas/${gsettings-desktop-schemas.name}:${gtk3}/share/gsettings-schemas/${gtk3.name}:''${XDG_DATA_DIRS:-/usr/share}
@@ -281,9 +276,9 @@
     dontUnpack = true;
     dontBuild = true;
 
-    nativeBuildInputs = [copyDesktopItems];
+    nativeBuildInputs = [ copyDesktopItems ];
 
-    desktopItems = [desktopItem];
+    desktopItems = [ desktopItem ];
 
     installPhase = ''
       runHook preInstall
@@ -355,7 +350,7 @@
       fi
     '';
 
-    desktopItems = [desktopItem];
+    desktopItems = [ desktopItem ];
 
     installPhase = ''
       runHook preInstall
@@ -391,6 +386,4 @@
     '';
   };
 in
-  if useFHS
-  then fhs-package
-  else no-fhs-package
+if useFHS then fhs-package else no-fhs-package
