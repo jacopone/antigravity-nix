@@ -49,18 +49,17 @@ jobs:
       - name: Run update script
         id: update
         run: |
-          chmod +x scripts/update-version.sh
-
           # Capture output and show it for debugging
-          if ./scripts/update-version.sh 2>&1 | tee update_output.txt; then
+          if node scripts/update-version.mjs 2>&1 | tee update_output.txt; then
             echo "update_success=true" >> $GITHUB_OUTPUT
 
-            # Extract new version if updated
-            if grep -q "Update complete" update_output.txt; then
-              # Extract version carefully - only the semver-build pattern
-              NEW_VERSION=$(grep -oP 'version = "\K[0-9]+\.[0-9]+\.[0-9]+-[0-9]+' flake.nix | head -1)
-              echo "Detected new version: $NEW_VERSION"
-              echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+            # Check if there are updates committed or modified
+            if grep -q "Update process successfully complete" update_output.txt; then
+              NEW_APP_VERSION=$(jq -r '."Antigravity 2.0".linux.x64 | match("([0-9]+\\.[0-9]+\\.[0-9]+-[0-9]+)") | .captures[0].string' artifacts/antigravity-2-and-ide--1--scraped-links.json)
+              NEW_CLI_VERSION=$(jq -r '.version' artifacts/antigravity-cli--manifests/linux_amd64.json)
+              echo "Detected new versions: App=$NEW_APP_VERSION, CLI=$NEW_CLI_VERSION"
+              echo "new_app_version=$NEW_APP_VERSION" >> $GITHUB_OUTPUT
+              echo "new_cli_version=$NEW_CLI_VERSION" >> $GITHUB_OUTPUT
               echo "has_changes=true" >> $GITHUB_OUTPUT
             else
               echo "has_changes=false" >> $GITHUB_OUTPUT
@@ -77,28 +76,31 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "chore: update antigravity to ${{ steps.update.outputs.new_version }}"
-          title: "chore: update antigravity to ${{ steps.update.outputs.new_version }}"
+          commit-message: "chore: update antigravity to App ${{ steps.update.outputs.new_app_version }} / CLI ${{ steps.update.outputs.new_cli_version }}"
+          title: "chore: update antigravity to App ${{ steps.update.outputs.new_app_version }} / CLI ${{ steps.update.outputs.new_cli_version }}"
           body: |
             ## Google Antigravity Update
 
-            This PR updates Google Antigravity to version **${{ steps.update.outputs.new_version }}**.
+            This PR updates Google Antigravity:
+            - **App (Agent Manager)**: version **${{ steps.update.outputs.new_app_version }}**
+            - **CLI (agy)**: version **${{ steps.update.outputs.new_cli_version }}**
 
             ### Changes
             - Updated version in `flake.nix`
             - Updated version and hash in `package.nix`
+            - Updated version and hash in `cli.nix`
             - Ran `nix flake update`
 
             ### Testing
-            - ✅ Built successfully
-            - ✅ Flake checks passed
+            - ✅ Desktop App built successfully
+            - ✅ CLI built successfully
 
             ### Changelog
             See: https://antigravity.google/releases
 
             ---
             🤖 This PR was created automatically by the auto-update workflow.
-          branch: auto-update/antigravity-${{ steps.update.outputs.new_version }}
+          branch: auto-update/antigravity-${{ steps.update.outputs.new_app_version }}-${{ steps.update.outputs.new_cli_version }}
           delete-branch: true
           labels: |
             automated
@@ -108,7 +110,8 @@ jobs:
         if: steps.update.outputs.has_changes == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NEW_VERSION: ${{ steps.update.outputs.new_version }}
+          NEW_APP_VERSION: ${{ steps.update.outputs.new_app_version }}
+          NEW_CLI_VERSION: ${{ steps.update.outputs.new_cli_version }}
         run: |
           # Retry loop with exponential backoff to find the PR
           MAX_ATTEMPTS=5
@@ -118,7 +121,7 @@ jobs:
           while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
             echo "Attempt $ATTEMPT/$MAX_ATTEMPTS: Looking for PR..."
 
-            PR_NUMBER=$(gh pr list --head "auto-update/antigravity-$NEW_VERSION" --json number --jq '.[0].number')
+            PR_NUMBER=$(gh pr list --head "auto-update/antigravity-$NEW_APP_VERSION-$NEW_CLI_VERSION" --json number --jq '.[0].number')
 
             if [ -n "$PR_NUMBER" ]; then
               echo "Found PR #$PR_NUMBER"
@@ -150,11 +153,12 @@ jobs:
         env:
           UPDATE_SUCCESS: ${{ steps.update.outputs.update_success }}
           HAS_CHANGES: ${{ steps.update.outputs.has_changes }}
-          NEW_VERSION: ${{ steps.update.outputs.new_version }}
+          NEW_APP_VERSION: ${{ steps.update.outputs.new_app_version }}
+          NEW_CLI_VERSION: ${{ steps.update.outputs.new_cli_version }}
         run: |
           if [[ "$UPDATE_SUCCESS" == "true" ]]; then
             if [[ "$HAS_CHANGES" == "true" ]]; then
-              echo "✅ Update successful! New version: $NEW_VERSION"
+              echo "✅ Update successful! App: $NEW_APP_VERSION, CLI: $NEW_CLI_VERSION"
             else
               echo "✅ Already at latest version"
             fi

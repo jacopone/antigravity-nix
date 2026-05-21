@@ -12,6 +12,13 @@ on:
       - master
     paths:
       - "package.nix"
+      - "cli.nix"
+      - "flake.nix"
+      - "google-antigravity2.nix"
+      - "google-antigravity-ide.nix"
+      - "artifacts/antigravity-2-and-ide--1--scraped-links.json"
+      - "artifacts/antigravity-2-and-ide--2--prefetched-sha256.json"
+      - "artifacts/antigravity-cli--manifests/*.json"
   # Allow manual trigger
   workflow_dispatch:
 
@@ -39,50 +46,61 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Get current version from flake.nix
-          CURRENT_VERSION=$(grep -oP 'version = "\K[^"]+' flake.nix | head -1)
-          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-          echo "Current version: $CURRENT_VERSION"
+          # Get current versions
+          CURRENT_APP=$(jq -r '."Antigravity 2.0".linux.x64 | match("([0-9]+\\.[0-9]+\\.[0-9]+-[0-9]+)") | .captures[0].string' artifacts/antigravity-2-and-ide--1--scraped-links.json)
+          CURRENT_CLI=$(jq -r '.version' artifacts/antigravity-cli--manifests/linux_amd64.json)
+          TAG_NAME="v$CURRENT_APP-$CURRENT_CLI"
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "app_version=$CURRENT_APP" >> $GITHUB_OUTPUT
+          echo "cli_version=$CURRENT_CLI" >> $GITHUB_OUTPUT
+          echo "Release tag: $TAG_NAME"
 
-          # Check if release already exists for this version
-          if gh release view "v$CURRENT_VERSION" >/dev/null 2>&1; then
+          # Check if release already exists for this tag
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
             echo "should_release=false" >> $GITHUB_OUTPUT
-            echo "Release v$CURRENT_VERSION already exists, skipping"
+            echo "Release $TAG_NAME already exists, skipping"
           else
             echo "should_release=true" >> $GITHUB_OUTPUT
-            echo "Release v$CURRENT_VERSION does not exist, will create"
+            echo "Release $TAG_NAME does not exist, will create"
           fi
 
       - name: Create release
         if: steps.release_check.outputs.should_release == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ steps.release_check.outputs.current_version }}
+          TAG_NAME: ${{ steps.release_check.outputs.tag_name }}
+          APP_VERSION: ${{ steps.release_check.outputs.app_version }}
+          CLI_VERSION: ${{ steps.release_check.outputs.cli_version }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "v$VERSION" -m "Google Antigravity v$VERSION"
-          git push origin "v$VERSION"
+          git tag -a "$TAG_NAME" -m "Google Antigravity App $APP_VERSION / CLI $CLI_VERSION"
+          git push origin "$TAG_NAME"
 
-          gh release create "v$VERSION" \
-            --title "Google Antigravity v$VERSION" \
-            --notes "Auto-updated Google Antigravity to version $VERSION.
+          gh release create "$TAG_NAME" \
+            --title "Google Antigravity App $APP_VERSION / CLI $CLI_VERSION" \
+            --notes "Auto-updated Google Antigravity to App $APP_VERSION and CLI $CLI_VERSION.
 
           ## Installation
 
           \`\`\`nix
-          inputs.antigravity-nix.url = \"github:jacopone/antigravity-nix/v$VERSION\";
+          inputs.antigravity-nix.url = \"github:srghma/antigravity-nix/$TAG_NAME\";
           \`\`\`
+
+          ## Included Packages
+
+          - **Google Antigravity (App)**: \`$APP_VERSION\` (Agent Manager Desktop)
+          - **Google Antigravity CLI (agy)**: \`$CLI_VERSION\`
 
           ## What's New
 
-          See: https://antigravity.google/releases
+          See: [Releases page](https://antigravity.google/releases)
 
           ## Features
 
-          - 🤖 Agentic IDE: Next-generation AI-powered development
-          - 🚀 Auto-updating: Updates daily at 07:00 UTC
-          - 📦 Multi-platform: Linux & macOS (x86_64, aarch64)
-          - 🔧 FHS Environment: Maximum compatibility"
+          - 🤖 Agentic IDE & Agent Manager
+          - 🚀 Auto-updating daily at 07:00 UTC
+          - 📦 Multi-platform support: Linux & macOS (x86_64, aarch64)
+          - 🔧 FHS Environment: Maximum Linux compatibility"
 
-          echo "✓ Created release v$VERSION"
+          echo "✓ Created release $TAG_NAME"

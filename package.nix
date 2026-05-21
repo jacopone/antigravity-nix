@@ -9,7 +9,6 @@
   makeWrapper,
   writeShellScript,
   asar,
-  bash,
   alsa-lib,
   at-spi2-atk,
   at-spi2-core,
@@ -48,52 +47,92 @@
   libxshmfence,
   libxkbfile,
   zlib,
+  undmg,
+  appType,
   useFHS ? true,
   useSystemChromeProfile ? true,
   google-chrome ? null,
-  extraBwrapArgs ? [],
+  extraBwrapArgs ? [ ],
   srcOverride ? null,
-}: let
-  pname = "google-antigravity";
-  version = "1.23.2-4781536860569600";
+}:
+let
+  isIde = appType == "Antigravity IDE";
 
-  isAarch64 = stdenv.hostPlatform.system == "aarch64-linux";
+  links = builtins.fromJSON (
+    builtins.readFile ./artifacts/antigravity-2-and-ide--1--scraped-links.json
+  );
+  hashes = builtins.fromJSON (
+    builtins.readFile ./artifacts/antigravity-2-and-ide--2--prefetched-sha256.json
+  );
+
+  system = stdenv.hostPlatform.system;
+
+  platformInfo =
+    if system == "aarch64-darwin" then
+      {
+        url = links.${appType}.macos."apple silicon";
+        hash = hashes.${appType}.macos."apple silicon";
+      }
+    else if system == "x86_64-darwin" then
+      {
+        url = links.${appType}.macos.intel;
+        hash = hashes.${appType}.macos.intel;
+      }
+    else if system == "aarch64-linux" then
+      {
+        url = links.${appType}.linux.arm64;
+        hash = hashes.${appType}.linux.arm64;
+      }
+    else if system == "x86_64-linux" then
+      {
+        url = links.${appType}.linux.x64;
+        hash = hashes.${appType}.linux.x64;
+      }
+    else
+      throw "Unsupported system for Antigravity ${appType}: ${system}";
+
+  finalUrl = platformInfo.url;
+  finalHash = platformInfo.hash;
+
+  version =
+    let
+      match = builtins.match ".*\/([0-9]+\\.[0-9]+\\.[0-9]+-[0-9]+)\/.*" finalUrl;
+    in
+    if match != null then builtins.elemAt match 0 else "unknown";
+
+  pname = if isIde then "google-antigravity-ide" else "google-antigravity2";
+  desktopName = if isIde then "Google Antigravity IDE" else "Google Antigravity";
+  binaryRelPath = if isIde then "bin/antigravity-ide" else "antigravity";
+  desktopIcon = if isIde then "antigravity-ide" else "antigravity";
+  startupWMClass = if isIde then "Antigravity IDE" else "Antigravity";
+
+  isAarch64 = system == "aarch64-linux";
 
   browserPkg =
-    if isAarch64
-    then chromium
-    else if google-chrome != null
-    then google-chrome
+    if isAarch64 then
+      chromium
+    else if google-chrome != null then
+      google-chrome
     else
       throw ''
         google-chrome is required on ${stdenv.hostPlatform.system} builds.
         Make sure you have allowUnfree = true or pass a google-chrome package.
       '';
 
-  browserCommand =
-    if isAarch64
-    then "chromium"
-    else "google-chrome-stable";
+  browserCommand = if isAarch64 then "chromium" else "google-chrome-stable";
 
-  browserProfileDir =
-    if isAarch64
-    then "$HOME/.config/chromium"
-    else "$HOME/.config/google-chrome";
+  browserProfileDir = if isAarch64 then "$HOME/.config/chromium" else "$HOME/.config/google-chrome";
 
   finalSrc =
-    if srcOverride != null
-    then srcOverride
+    if srcOverride != null then
+      srcOverride
     else
       fetchurl {
-        url = "https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable/${version}/linux-x64/Antigravity.tar.gz";
-        sha256 = "sha256-UjKkBI/0+hVoXZqYG6T7pXPil/PvybdvY455S693VyU=";
+        url = finalUrl;
+        sha256 = finalHash;
       };
 
   # Create a browser wrapper
-  # When useSystemChromeProfile is true (default), forces use of the user's
-  # existing Chrome profile so extensions are available to Antigravity.
-  # When false, omits profile flags so Chrome runs with its own default
-  # behavior, isolating Antigravity from the user's main profile.
   chrome-wrapper = writeShellScript "${browserCommand}-with-profile" ''
     set -euo pipefail
 
@@ -158,29 +197,32 @@
   runtimeLibs = linkedLibs ++ dlopenLibs;
 
   desktopItem = makeDesktopItem {
-    name = "antigravity";
-    desktopName = "Google Antigravity";
+    name = desktopIcon;
+    desktopName = desktopName;
     comment = "Next-generation agentic IDE";
-    exec = "antigravity --enable-features=UseOzonePlatform,WaylandWindowDecorations --ozone-platform-hint=auto --enable-wayland-ime=true --wayland-text-input-version=3 %U";
-    icon = "antigravity";
-    categories = ["Development" "IDE"];
+    exec = "${desktopIcon} --enable-features=UseOzonePlatform,WaylandWindowDecorations --ozone-platform-hint=auto --enable-wayland-ime=true --wayland-text-input-version=3 %U";
+    icon = desktopIcon;
+    categories = [
+      "Development"
+      "IDE"
+    ];
     startupNotify = true;
-    startupWMClass = "Antigravity";
+    startupWMClass = startupWMClass;
     mimeTypes = [
       "x-scheme-handler/antigravity"
     ];
   };
 
   meta = with lib; {
-    description = "Google Antigravity - Next-generation agentic IDE";
+    description = desktopName;
     homepage = "https://antigravity.google";
     license = licenses.unfree;
-    platforms = platforms.linux;
-    maintainers = [];
-    mainProgram = "antigravity";
+    platforms = platforms.linux ++ platforms.darwin;
+    maintainers = [ ];
+    mainProgram = desktopIcon;
   };
 
-  # ── FHS variant (default) ──────────────────────────────────
+  # ── FHS variant (default for Linux) ────────────────────────
 
   # Extract the upstream tarball without modification
   antigravity-unwrapped = stdenv.mkDerivation {
@@ -192,32 +234,32 @@
     dontPatchELF = true;
     dontStrip = true;
 
-    nativeBuildInputs = [asar];
+    nativeBuildInputs = [ asar ];
 
-    postPatch = ''
-      packed="resources/app/node_modules.asar"
-      unpacked="resources/app/node_modules"
-      asar extract "$packed" "$unpacked"
-      substituteInPlace $unpacked/@vscode/sudo-prompt/index.js \
-        --replace-fail "/usr/bin/pkexec" "/run/wrappers/bin/pkexec" \
-        --replace-fail "/bin/bash" "${bash}/bin/bash"
-      rm -rf "$packed"
-      ln -rs "$unpacked" "$packed"
+    unpackPhase = ''
+      tar -xzf $src
+      for d in *; do
+        if [ -d "$d" ]; then
+          cd "$d"
+          break
+        fi
+      done
     '';
 
     installPhase = ''
       runHook preInstall
 
-      mkdir -p $out/lib/antigravity
-      cp -r ./* $out/lib/antigravity/
+      mkdir -p $out/lib/${pname}
+      cp -r ./* $out/lib/${pname}/
 
       # Provide a dummy tunnel script to avoid ENOENT errors when running 'antigravity tunnel'
-      cat <<'EOF' > $out/lib/antigravity/bin/antigravity-tunnel
+      mkdir -p $out/lib/${pname}/resources/bin
+      cat <<'EOF' > $out/lib/${pname}/resources/bin/antigravity-tunnel
       #!/usr/bin/env bash
       echo "Remote tunneling is not supported in the Linux package of Google Antigravity because the required proprietary binary is not bundled." >&2
       exit 1
       EOF
-      chmod +x $out/lib/antigravity/bin/antigravity-tunnel
+      chmod +x $out/lib/${pname}/resources/bin/antigravity-tunnel
 
       runHook postInstall
     '';
@@ -227,8 +269,9 @@
 
   # FHS environment for running Antigravity
   fhs = buildFHSEnv {
-    name = "antigravity-fhs";
-    targetPkgs = pkgs:
+    name = "${pname}-fhs";
+    targetPkgs =
+      pkgs:
       runtimeLibs
       ++ [
         pkgs.udev
@@ -240,15 +283,16 @@
       "--bind-try /etc/nixos/ /etc/nixos/"
       "--ro-bind-try /etc/xdg/ /etc/xdg/"
       "--ro-bind-try /etc/nixpkgs/ /etc/nixpkgs/"
-    ] ++ extraBwrapArgs;
+    ]
+    ++ extraBwrapArgs;
 
-    runScript = writeShellScript "antigravity-wrapper" ''
+    runScript = writeShellScript "${pname}-wrapper" ''
       # Set Chrome paths to use our wrapper that forces user profile
       # This ensures extensions installed in user's Chrome profile are available
       export CHROME_BIN=${chrome-wrapper}
       export CHROME_PATH=${chrome-wrapper}
 
-      exec ${antigravity-unwrapped}/lib/antigravity/bin/antigravity "$@"
+      exec ${antigravity-unwrapped}/lib/${pname}/${binaryRelPath} "$@"
     '';
 
     inherit meta;
@@ -260,26 +304,36 @@
     dontUnpack = true;
     dontBuild = true;
 
-    nativeBuildInputs = [copyDesktopItems];
+    nativeBuildInputs = [
+      copyDesktopItems
+      asar
+    ];
 
-    desktopItems = [desktopItem];
+    desktopItems = [ desktopItem ];
 
     installPhase = ''
       runHook preInstall
 
       mkdir -p $out/bin
-      ln -s ${fhs}/bin/antigravity-fhs $out/bin/antigravity
+      ln -s ${fhs}/bin/${pname}-fhs $out/bin/${desktopIcon}
 
       # Install icon from the app resources
       mkdir -p $out/share/pixmaps $out/share/icons/hicolor/1024x1024/apps
-      cp ${antigravity-unwrapped}/lib/antigravity/resources/app/resources/linux/code.png $out/share/pixmaps/antigravity.png
-      cp ${antigravity-unwrapped}/lib/antigravity/resources/app/resources/linux/code.png $out/share/icons/hicolor/1024x1024/apps/antigravity.png
+      if [ -f "${antigravity-unwrapped}/lib/${pname}/resources/app.asar" ]; then
+        asar extract ${antigravity-unwrapped}/lib/${pname}/resources/app.asar temp_extracted
+        cp temp_extracted/icon.png $out/share/pixmaps/${desktopIcon}.png
+        cp temp_extracted/icon.png $out/share/icons/hicolor/1024x1024/apps/${desktopIcon}.png
+        rm -rf temp_extracted
+      elif [ -f "${antigravity-unwrapped}/lib/${pname}/resources/app/resources/linux/code.png" ]; then
+        cp ${antigravity-unwrapped}/lib/${pname}/resources/app/resources/linux/code.png $out/share/pixmaps/${desktopIcon}.png
+        cp ${antigravity-unwrapped}/lib/${pname}/resources/app/resources/linux/code.png $out/share/icons/hicolor/1024x1024/apps/${desktopIcon}.png
+      fi
 
       runHook postInstall
     '';
   };
 
-  # ── Non-FHS variant ────────────────────────────────────────
+  # ── Non-FHS variant (Linux) ────────────────────────────────
   # Uses autoPatchelfHook instead of buildFHSEnv.
   # This avoids the bubblewrap sandbox that sets the kernel
   # "no new privileges" flag, which prevents sudo from working
@@ -311,47 +365,77 @@
     dontBuild = true;
     dontConfigure = true;
 
-    postPatch = ''
-      packed="resources/app/node_modules.asar"
-      unpacked="resources/app/node_modules"
-      asar extract "$packed" "$unpacked"
-      substituteInPlace $unpacked/@vscode/sudo-prompt/index.js \
-        --replace-fail "/usr/bin/pkexec" "/run/wrappers/bin/pkexec" \
-        --replace-fail "/bin/bash" "${bash}/bin/bash"
-      rm -rf "$packed"
-      ln -rs "$unpacked" "$packed"
+    unpackPhase = ''
+      tar -xzf $src
+      for d in *; do
+        if [ -d "$d" ]; then
+          cd "$d"
+          break
+        fi
+      done
     '';
 
-    desktopItems = [desktopItem];
+    desktopItems = [ desktopItem ];
 
     installPhase = ''
       runHook preInstall
 
-      mkdir -p $out/lib/antigravity
-      cp -r ./* $out/lib/antigravity/
+      mkdir -p $out/lib/${pname}
+      cp -r ./* $out/lib/${pname}/
 
       # Provide a dummy tunnel script to avoid ENOENT errors when running 'antigravity tunnel'
-      cat <<'EOF' > $out/lib/antigravity/bin/antigravity-tunnel
+      mkdir -p $out/lib/${pname}/resources/bin
+      cat <<'EOF' > $out/lib/${pname}/resources/bin/antigravity-tunnel
       #!/usr/bin/env bash
       echo "Remote tunneling is not supported in the Linux package of Google Antigravity because the required proprietary binary is not bundled." >&2
       exit 1
       EOF
-      chmod +x $out/lib/antigravity/bin/antigravity-tunnel
+      chmod +x $out/lib/${pname}/resources/bin/antigravity-tunnel
 
       mkdir -p $out/bin
-      makeWrapper $out/lib/antigravity/bin/antigravity $out/bin/antigravity \
+      makeWrapper $out/lib/${pname}/${binaryRelPath} $out/bin/${desktopIcon} \
         --set CHROME_BIN ${chrome-wrapper} \
         --set CHROME_PATH ${chrome-wrapper}
 
       # Install icon from the app resources
       mkdir -p $out/share/pixmaps $out/share/icons/hicolor/1024x1024/apps
-      cp $out/lib/antigravity/resources/app/resources/linux/code.png $out/share/pixmaps/antigravity.png
-      cp $out/lib/antigravity/resources/app/resources/linux/code.png $out/share/icons/hicolor/1024x1024/apps/antigravity.png
+      if [ -f "$out/lib/${pname}/resources/app.asar" ]; then
+        asar extract $out/lib/${pname}/resources/app.asar temp_extracted
+        cp temp_extracted/icon.png $out/share/pixmaps/${desktopIcon}.png
+        cp temp_extracted/icon.png $out/share/icons/hicolor/1024x1024/apps/${desktopIcon}.png
+        rm -rf temp_extracted
+      elif [ -f "$out/lib/${pname}/resources/app/resources/linux/code.png" ]; then
+        cp $out/lib/${pname}/resources/app/resources/linux/code.png $out/share/pixmaps/${desktopIcon}.png
+        cp $out/lib/${pname}/resources/app/resources/linux/code.png $out/share/icons/hicolor/1024x1024/apps/${desktopIcon}.png
+      fi
+
+      runHook postInstall
+    '';
+  };
+
+  # ── macOS (Darwin) Package ─────────────────────────────────
+
+  darwin-package = stdenv.mkDerivation {
+    inherit pname version meta;
+    src = finalSrc;
+
+    nativeBuildInputs = [ undmg ];
+
+    sourceRoot = ".";
+
+    installPhase = ''
+      runHook preInstall
+
+      mkdir -p $out/Applications
+      cp -r *.app $out/Applications/
 
       runHook postInstall
     '';
   };
 in
-  if useFHS
-  then fhs-package
-  else no-fhs-package
+if stdenv.hostPlatform.isDarwin then
+  darwin-package
+else if useFHS then
+  fhs-package
+else
+  no-fhs-package

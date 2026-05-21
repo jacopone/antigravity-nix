@@ -6,22 +6,32 @@
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = {
-    nixpkgs,
-    flake-utils,
-    ...
-  }:
+  outputs =
+    {
+      self,
+      nixpkgs,
+      flake-utils,
+      ...
+    }:
     flake-utils.lib.eachDefaultSystem (
-      system: let
+      system:
+      let
         pkgs = import nixpkgs {
           inherit system;
           config.allowUnfree = true;
+          overlays = [ self.overlays.default ];
         };
-      in {
+      in
+      {
         packages = {
-          default = pkgs.callPackage ./package.nix {};
-          google-antigravity = pkgs.callPackage ./package.nix {};
-          google-antigravity-no-fhs = pkgs.callPackage ./package.nix {useFHS = false;};
+          inherit (pkgs)
+            google-antigravity2
+            google-antigravity2-no-fhs
+            google-antigravity-ide
+            google-antigravity-ide-no-fhs
+            google-antigravity-cli
+            ;
+          default = pkgs.google-antigravity-ide;
         };
 
         # Development shell for working on this flake
@@ -38,8 +48,11 @@
           shellHook = ''
             echo "Antigravity development environment"
             echo "Available commands:"
-            echo "  ./scripts/check-version.sh  - Check current vs latest version"
-            echo "  ./scripts/update-version.sh - Update to latest version"
+            echo "  node scripts/antigravity-2-and-ide--1--scrape-download-page.mjs"
+            echo "  node scripts/antigravity-cli--parse-install-script-and-download-manifests.mjs"
+            echo "  node scripts/antigravity-2-and-ide--2--prefetch-links.mjs"
+            echo "  node scripts/update-version.mjs"
+            echo "  node scripts/test.mjs"
             echo ""
             echo "First time setup:"
             echo "  npm install  - Install playwright-chromium locally"
@@ -50,13 +63,13 @@
       }
     )
     // {
-      # Version information for auto-update
-      version = "1.23.2-4781536860569600";
-
       # Overlay for easy integration into NixOS configurations
-      overlays.default = final: prev: {
-        google-antigravity = final.callPackage ./package.nix {};
-        google-antigravity-no-fhs = final.callPackage ./package.nix {useFHS = false;};
+      overlays.default = final: _prev: {
+        google-antigravity2 = final.callPackage ./google-antigravity2.nix { };
+        google-antigravity2-no-fhs = final.callPackage ./google-antigravity2.nix { useFHS = false; };
+        google-antigravity-ide = final.callPackage ./google-antigravity-ide.nix { };
+        google-antigravity-ide-no-fhs = final.callPackage ./google-antigravity-ide.nix { useFHS = false; };
+        google-antigravity-cli = final.callPackage ./cli.nix { };
       };
     };
 }

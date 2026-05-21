@@ -1,0 +1,22 @@
+{
+  "Antigravity 2.0": {
+    "macos": {
+      "apple silicon": "https://storage.googleapis.com/antigravity-public/antigravity-hub/2.0.1-6566078776737792/darwin-arm/Antigravity.dmg",
+      "intel": "https://storage.googleapis.com/antigravity-public/antigravity-hub/2.0.1-6566078776737792/darwin-x64/Antigravity.dmg"
+    },
+    "linux": {
+      "x64": "https://storage.googleapis.com/antigravity-public/antigravity-hub/2.0.1-6566078776737792/linux-x64/Antigravity.tar.gz",
+      "arm64": "https://storage.googleapis.com/antigravity-public/antigravity-hub/2.0.1-6566078776737792/linux-arm/Antigravity.tar.gz"
+    }
+  },
+  "Antigravity IDE": {
+    "macos": {
+      "apple silicon": "https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable/2.0.1-4861014005645312/darwin-arm/Antigravity%20IDE.dmg",
+      "intel": "https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable/2.0.1-4861014005645312/darwin-x64/Antigravity%20IDE.dmg"
+    },
+    "linux": {
+      "x64": "https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable/2.0.1-4861014005645312/linux-x64/Antigravity%20IDE.tar.gz",
+      "arm64": "https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable/2.0.1-4861014005645312/linux-arm/Antigravity%20IDE.tar.gz"
+    }
+  }
+}

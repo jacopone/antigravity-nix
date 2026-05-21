@@ -4,9 +4,11 @@
   "description": "Browser automation scripts for antigravity-nix version detection",
   "private": true,
   "scripts": {
-    "scrape": "node scripts/scrape-version.js",
-    "check": "bash scripts/check-version.sh",
-    "update": "bash scripts/update-version.sh"
+    "scrape-links": "node scripts/antigravity-2-and-ide--1--scrape-download-page.mjs",
+    "scrape-cli": "node scripts/antigravity-cli--parse-install-script-and-download-manifests.mjs",
+    "prefetch": "node scripts/antigravity-2-and-ide--2--prefetch-links.mjs",
+    "update": "node scripts/update-version.mjs",
+    "test": "node scripts/test.mjs"
   },
   "dependencies": {
     "playwright-chromium": "^1.59.1"
