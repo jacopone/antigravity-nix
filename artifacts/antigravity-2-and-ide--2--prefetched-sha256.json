@@ -1,0 +1,22 @@
+{
+  "Antigravity 2.0": {
+    "macos": {
+      "apple silicon": "sha256-KHjxZxNVBgCnHCXz6lYAfEcqeWK7ddWK5BqSGa+x49I=",
+      "intel": "sha256-3UsGCpi1a2a9EiwxUurcDNmwLmoLRnSMlcs+oTp9RXs="
+    },
+    "linux": {
+      "x64": "sha256-Byfh9WlhttI0eUHyeNppzGwX3jvv6YhSSEjNFnOA6as=",
+      "arm64": "sha256-WvVsyd2pVPNpphBFt9ovNIvLCzUH0nK0wOmqfNYXXZs="
+    }
+  },
+  "Antigravity IDE": {
+    "macos": {
+      "apple silicon": "sha256-bILfxiD+EqxH0G7CSl5tqYuxIGHMK1l6jFaLB3F+N6o=",
+      "intel": "sha256-jVk+QyvEKJpNqhkoYMRvgs1iFsGIwrMZrbyujV12mGE="
+    },
+    "linux": {
+      "x64": "sha256-dHFjqjqK+6SzFvl8QLSnXKRzall2ikFs0eiB5z7DHvk=",
+      "arm64": "sha256-OOnMC+t9d4Lg57JBDlCUXVbWY5GnmYneORubpUSiaX4="
+    }
+  }
+}

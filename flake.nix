@@ -19,12 +19,12 @@
         };
       in {
         packages = {
-          default = pkgs.callPackage ./pkgs/ide/default.nix {};
-          google-antigravity = pkgs.callPackage ./pkgs/base/default.nix {};
-          google-antigravity-no-fhs = pkgs.callPackage ./pkgs/base/default.nix {useFHS = false;};
-          google-antigravity-ide = pkgs.callPackage ./pkgs/ide/default.nix {};
-          google-antigravity-ide-no-fhs = pkgs.callPackage ./pkgs/ide/default.nix {useFHS = false;};
-          google-antigravity-cli = pkgs.callPackage ./pkgs/cli/default.nix {};
+          default = pkgs.callPackage ./pkgs/google-antigravity-ide.nix {};
+          google-antigravity = pkgs.callPackage ./pkgs/google-antigravity2.nix {};
+          google-antigravity-no-fhs = pkgs.callPackage ./pkgs/google-antigravity2.nix {useFHS = false;};
+          google-antigravity-ide = pkgs.callPackage ./pkgs/google-antigravity-ide.nix {};
+          google-antigravity-ide-no-fhs = pkgs.callPackage ./pkgs/google-antigravity-ide.nix {useFHS = false;};
+          google-antigravity-cli = pkgs.callPackage ./pkgs/cli.nix {};
         };
 
         # Development shell for working on this flake
@@ -52,11 +52,11 @@
     // {
       # Overlay for easy integration into NixOS configurations
       overlays.default = final: prev: {
-        google-antigravity = final.callPackage ./pkgs/base/default.nix {};
-        google-antigravity-no-fhs = final.callPackage ./pkgs/base/default.nix {useFHS = false;};
-        google-antigravity-ide = final.callPackage ./pkgs/ide/default.nix {};
-        google-antigravity-ide-no-fhs = final.callPackage ./pkgs/ide/default.nix {useFHS = false;};
-        google-antigravity-cli = final.callPackage ./pkgs/cli/default.nix {};
+        google-antigravity = final.callPackage ./pkgs/google-antigravity2.nix {};
+        google-antigravity-no-fhs = final.callPackage ./pkgs/google-antigravity2.nix {useFHS = false;};
+        google-antigravity-ide = final.callPackage ./pkgs/google-antigravity-ide.nix {};
+        google-antigravity-ide-no-fhs = final.callPackage ./pkgs/google-antigravity-ide.nix {useFHS = false;};
+        google-antigravity-cli = final.callPackage ./pkgs/cli.nix {};
       };
     };
 }

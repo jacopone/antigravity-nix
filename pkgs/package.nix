@@ -22,7 +22,6 @@
   glib,
   gsettings-desktop-schemas,
   gtk3,
-  mesa,
   libdrm,
   libgbm,
   libglvnd,
@@ -50,6 +49,8 @@
   libxshmfence,
   libxkbfile,
   zlib,
+  undmg,
+  appType,
   useFHS ? true,
   useSystemChromeProfile ? true,
   google-chrome ? null,
@@ -57,10 +58,57 @@
   srcOverride ? null,
 }:
 let
-  pname = "google-antigravity-ide";
-  version = "2.0.2-5949548972081152";
+  isIde = appType == "Antigravity IDE";
 
-  isAarch64 = stdenv.hostPlatform.system == "aarch64-linux";
+  links = builtins.fromJSON (
+    builtins.readFile ../artifacts/antigravity-2-and-ide--1--scraped-links.json
+  );
+  hashes = builtins.fromJSON (
+    builtins.readFile ../artifacts/antigravity-2-and-ide--2--prefetched-sha256.json
+  );
+
+  system = stdenv.hostPlatform.system;
+
+  platformInfo =
+    if system == "aarch64-darwin" then
+      {
+        url = links.${appType}.macos."apple silicon";
+        hash = hashes.${appType}.macos."apple silicon";
+      }
+    else if system == "x86_64-darwin" then
+      {
+        url = links.${appType}.macos.intel;
+        hash = hashes.${appType}.macos.intel;
+      }
+    else if system == "aarch64-linux" then
+      {
+        url = links.${appType}.linux.arm64;
+        hash = hashes.${appType}.linux.arm64;
+      }
+    else if system == "x86_64-linux" then
+      {
+        url = links.${appType}.linux.x64;
+        hash = hashes.${appType}.linux.x64;
+      }
+    else
+      throw "Unsupported system for Antigravity ${appType}: ${system}";
+
+  finalUrl = platformInfo.url;
+  finalHash = platformInfo.hash;
+
+  version =
+    let
+      match = builtins.match ".*\/([0-9]+\\.[0-9]+\\.[0-9]+-[0-9]+)\/.*" finalUrl;
+    in
+    if match != null then builtins.elemAt match 0 else "unknown";
+
+  pname = if isIde then "google-antigravity-ide" else "google-antigravity2";
+  desktopName = if isIde then "Google Antigravity IDE" else "Google Antigravity";
+  binaryRelPath = if isIde then "bin/antigravity-ide" else "antigravity";
+  desktopIcon = if isIde then "antigravity-ide" else "antigravity";
+  startupWMClass = if isIde then "Antigravity IDE" else "Antigravity";
+
+  isAarch64 = system == "aarch64-linux";
 
   browserPkg =
     if isAarch64 then
@@ -82,11 +130,11 @@ let
       srcOverride
     else
       fetchurl {
-        name = "Antigravity_IDE.tar.gz";
-        url = "https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable/${version}/linux-x64/Antigravity%20IDE.tar.gz";
-        sha256 = "sha256-SVKYKDn8TH4ST4X+rkR54mXK4pVxjPlsfJ5Esu9qME4=";
+        url = finalUrl;
+        sha256 = finalHash;
       };
 
+  # Create a browser wrapper
   chrome-wrapper = writeShellScript "${browserCommand}-with-profile" ''
     set -euo pipefail
 
@@ -105,7 +153,6 @@ let
   # Libraries loaded via dlopen() at runtime
   dlopenLibs = [
     libglvnd
-    mesa
     vulkan-loader
     systemdLibs
     libnotify
@@ -152,32 +199,32 @@ let
   runtimeLibs = linkedLibs ++ dlopenLibs;
 
   desktopItem = makeDesktopItem {
-    name = "antigravity-ide";
-    desktopName = "Google Antigravity IDE";
+    name = desktopIcon;
+    desktopName = desktopName;
     comment = "Next-generation agentic IDE";
-    exec = "antigravity-ide --enable-features=UseOzonePlatform,WaylandWindowDecorations --ozone-platform-hint=auto --enable-wayland-ime=true --wayland-text-input-version=3 %U";
-    icon = "antigravity-ide";
+    exec = "${desktopIcon} --enable-features=UseOzonePlatform,WaylandWindowDecorations --ozone-platform-hint=auto --enable-wayland-ime=true --wayland-text-input-version=3 %U";
+    icon = desktopIcon;
     categories = [
       "Development"
       "IDE"
     ];
     startupNotify = true;
-    startupWMClass = "Antigravity IDE";
+    startupWMClass = startupWMClass;
     mimeTypes = [
       "x-scheme-handler/antigravity"
     ];
   };
 
   meta = with lib; {
-    description = "Google Antigravity - Next-generation agentic IDE";
+    description = desktopName;
     homepage = "https://antigravity.google";
     license = licenses.unfree;
-    platforms = platforms.linux;
+    platforms = platforms.linux ++ platforms.darwin;
     maintainers = [ ];
-    mainProgram = "antigravity-ide";
+    mainProgram = desktopIcon;
   };
 
-  # ── FHS variant (default) ──────────────────────────────────
+  # ── FHS variant (default for Linux) ────────────────────────
 
   # Extract the upstream tarball without modification
   antigravity-unwrapped = stdenv.mkDerivation {
@@ -210,29 +257,32 @@ let
             --replace-fail "/bin/bash" "${bash}/bin/bash"
         fi
       fi
+    '';
 
-      # Extract icon from app.asar if present
-      if [ -f "resources/app.asar" ]; then
-        asar extract-file resources/app.asar icon.png || true
-      elif [ -f "resources/app/icon.png" ]; then
-        cp resources/app/icon.png icon.png || true
-      fi
+    unpackPhase = ''
+      tar -xzf $src
+      for d in *; do
+        if [ -d "$d" ]; then
+          cd "$d"
+          break
+        fi
+      done
     '';
 
     installPhase = ''
       runHook preInstall
 
-      mkdir -p $out/lib/antigravity-ide
-      cp -r ./* $out/lib/antigravity-ide/
+      mkdir -p $out/lib/${pname}
+      cp -r ./* $out/lib/${pname}/
 
-      # Provide a dummy tunnel script to avoid ENOENT errors when running 'antigravity-ide tunnel'
-      mkdir -p $out/lib/antigravity-ide/bin
-      cat <<'EOF' > $out/lib/antigravity-ide/bin/antigravity-tunnel
+      # Provide a dummy tunnel script to avoid ENOENT errors when running 'antigravity tunnel'
+      mkdir -p $out/lib/${pname}/resources/bin
+      cat <<'EOF' > $out/lib/${pname}/resources/bin/antigravity-tunnel
       #!/usr/bin/env bash
-      echo "Remote tunneling is not supported in the Linux package of Google Antigravity IDE because the required proprietary binary is not bundled." >&2
+      echo "Remote tunneling is not supported in the Linux package of Google Antigravity because the required proprietary binary is not bundled." >&2
       exit 1
       EOF
-      chmod +x $out/lib/antigravity-ide/bin/antigravity-tunnel
+      chmod +x $out/lib/${pname}/resources/bin/antigravity-tunnel
 
       runHook postInstall
     '';
@@ -242,7 +292,7 @@ let
 
   # FHS environment for running Antigravity
   fhs = buildFHSEnv {
-    name = "antigravity-fhs";
+    name = "${pname}-fhs";
     targetPkgs =
       pkgs:
       runtimeLibs
@@ -259,19 +309,13 @@ let
     ]
     ++ extraBwrapArgs;
 
-    runScript = writeShellScript "antigravity-wrapper" ''
-      export XDG_DATA_DIRS=${gsettings-desktop-schemas}/share/gsettings-schemas/${gsettings-desktop-schemas.name}:${gtk3}/share/gsettings-schemas/${gtk3.name}:''${XDG_DATA_DIRS:-/usr/share}
-
+    runScript = writeShellScript "${pname}-wrapper" ''
       # Set Chrome paths to use our wrapper that forces user profile
       # This ensures extensions installed in user's Chrome profile are available
       export CHROME_BIN=${chrome-wrapper}
       export CHROME_PATH=${chrome-wrapper}
 
-      if [[ "$NIXOS_OZONE_WL" == "1" ]]; then
-        exec ${antigravity-unwrapped}/lib/antigravity-ide/bin/antigravity-ide --enable-features=UseOzonePlatform,WaylandWindowDecorations --ozone-platform-hint=auto --enable-wayland-ime=true --wayland-text-input-version=3 "$@"
-      else
-        exec ${antigravity-unwrapped}/lib/antigravity-ide/bin/antigravity-ide "$@"
-      fi
+      exec ${antigravity-unwrapped}/lib/${pname}/${binaryRelPath} ${lib.optionalString isIde "--user-data-dir=$HOME/.antigravity-ide"} "$@"
     '';
 
     inherit meta;
@@ -283,7 +327,10 @@ let
     dontUnpack = true;
     dontBuild = true;
 
-    nativeBuildInputs = [ copyDesktopItems ];
+    nativeBuildInputs = [
+      copyDesktopItems
+      asar
+    ];
 
     desktopItems = [ desktopItem ];
 
@@ -291,23 +338,25 @@ let
       runHook preInstall
 
       mkdir -p $out/bin
-      ln -s ${fhs}/bin/antigravity-fhs $out/bin/antigravity-ide
+      ln -s ${fhs}/bin/${pname}-fhs $out/bin/${desktopIcon}
 
       # Install icon from the app resources
       mkdir -p $out/share/pixmaps $out/share/icons/hicolor/1024x1024/apps
-      if [ -f "${antigravity-unwrapped}/lib/antigravity-ide/resources/app/resources/linux/code.png" ]; then
-        cp "${antigravity-unwrapped}/lib/antigravity-ide/resources/app/resources/linux/code.png" $out/share/pixmaps/antigravity-ide.png
-        cp "${antigravity-unwrapped}/lib/antigravity-ide/resources/app/resources/linux/code.png" $out/share/icons/hicolor/1024x1024/apps/antigravity-ide.png
-      elif [ -f "${antigravity-unwrapped}/lib/antigravity-ide/icon.png" ]; then
-        cp "${antigravity-unwrapped}/lib/antigravity-ide/icon.png" $out/share/pixmaps/antigravity-ide.png
-        cp "${antigravity-unwrapped}/lib/antigravity-ide/icon.png" $out/share/icons/hicolor/1024x1024/apps/antigravity-ide.png
+      if [ -f "${antigravity-unwrapped}/lib/${pname}/resources/app.asar" ]; then
+        asar extract ${antigravity-unwrapped}/lib/${pname}/resources/app.asar temp_extracted
+        cp temp_extracted/icon.png $out/share/pixmaps/${desktopIcon}.png
+        cp temp_extracted/icon.png $out/share/icons/hicolor/1024x1024/apps/${desktopIcon}.png
+        rm -rf temp_extracted
+      elif [ -f "${antigravity-unwrapped}/lib/${pname}/resources/app/resources/linux/code.png" ]; then
+        cp ${antigravity-unwrapped}/lib/${pname}/resources/app/resources/linux/code.png $out/share/pixmaps/${desktopIcon}.png
+        cp ${antigravity-unwrapped}/lib/${pname}/resources/app/resources/linux/code.png $out/share/icons/hicolor/1024x1024/apps/${desktopIcon}.png
       fi
 
       runHook postInstall
     '';
   };
 
-  # ── Non-FHS variant ────────────────────────────────────────
+  # ── Non-FHS variant (Linux) ────────────────────────────────
   # Uses autoPatchelfHook instead of buildFHSEnv.
   # This avoids the bubblewrap sandbox that sets the kernel
   # "no new privileges" flag, which prevents sudo from working
@@ -358,13 +407,16 @@ let
             --replace-fail "/bin/bash" "${bash}/bin/bash"
         fi
       fi
+    '';
 
-      # Extract icon from app.asar if present
-      if [ -f "resources/app.asar" ]; then
-        asar extract-file resources/app.asar icon.png || true
-      elif [ -f "resources/app/icon.png" ]; then
-        cp resources/app/icon.png icon.png || true
-      fi
+    unpackPhase = ''
+      tar -xzf $src
+      for d in *; do
+        if [ -d "$d" ]; then
+          cd "$d"
+          break
+        fi
+      done
     '';
 
     desktopItems = [ desktopItem ];
@@ -372,38 +424,65 @@ let
     installPhase = ''
       runHook preInstall
 
-      mkdir -p $out/lib/antigravity-ide
-      cp -r ./* $out/lib/antigravity-ide/
+      mkdir -p $out/lib/${pname}
+      cp -r ./* $out/lib/${pname}/
 
-      # Provide a dummy tunnel script to avoid ENOENT errors when running 'antigravity-ide tunnel'
-      mkdir -p $out/lib/antigravity-ide/bin
-      cat <<'EOF' > $out/lib/antigravity-ide/bin/antigravity-tunnel
+      # Provide a dummy tunnel script to avoid ENOENT errors when running 'antigravity tunnel'
+      mkdir -p $out/lib/${pname}/resources/bin
+      cat <<'EOF' > $out/lib/${pname}/resources/bin/antigravity-tunnel
       #!/usr/bin/env bash
-      echo "Remote tunneling is not supported in the Linux package of Google Antigravity IDE because the required proprietary binary is not bundled." >&2
+      echo "Remote tunneling is not supported in the Linux package of Google Antigravity because the required proprietary binary is not bundled." >&2
       exit 1
       EOF
-      chmod +x $out/lib/antigravity-ide/bin/antigravity-tunnel
+      chmod +x $out/lib/${pname}/resources/bin/antigravity-tunnel
 
       mkdir -p $out/bin
-      makeWrapper $out/lib/antigravity-ide/bin/antigravity-ide $out/bin/antigravity-ide \
+      makeWrapper $out/lib/${pname}/${binaryRelPath} $out/bin/${desktopIcon} \
         --set CHROME_BIN ${chrome-wrapper} \
         --set CHROME_PATH ${chrome-wrapper} \
         --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath dlopenLibs}" \
         --prefix XDG_DATA_DIRS : "${gsettings-desktop-schemas}/share/gsettings-schemas/${gsettings-desktop-schemas.name}:${gtk3}/share/gsettings-schemas/${gtk3.name}" \
-        --add-flags "\''${NIXOS_OZONE_WL:+--enable-features=UseOzonePlatform,WaylandWindowDecorations --ozone-platform-hint=auto --enable-wayland-ime=true --wayland-text-input-version=3}"
+        ${lib.optionalString isIde "--add-flags \"--user-data-dir=$HOME/.antigravity-ide\""}
 
       # Install icon from the app resources
       mkdir -p $out/share/pixmaps $out/share/icons/hicolor/1024x1024/apps
-      if [ -f "$out/lib/antigravity-ide/resources/app/resources/linux/code.png" ]; then
-        cp "$out/lib/antigravity-ide/resources/app/resources/linux/code.png" $out/share/pixmaps/antigravity-ide.png
-        cp "$out/lib/antigravity-ide/resources/app/resources/linux/code.png" $out/share/icons/hicolor/1024x1024/apps/antigravity-ide.png
-      elif [ -f "$out/lib/antigravity-ide/icon.png" ]; then
-        cp "$out/lib/antigravity-ide/icon.png" $out/share/pixmaps/antigravity-ide.png
-        cp "$out/lib/antigravity-ide/icon.png" $out/share/icons/hicolor/1024x1024/apps/antigravity-ide.png
+      if [ -f "$out/lib/${pname}/resources/app.asar" ]; then
+        asar extract $out/lib/${pname}/resources/app.asar temp_extracted
+        cp temp_extracted/icon.png $out/share/pixmaps/${desktopIcon}.png
+        cp temp_extracted/icon.png $out/share/icons/hicolor/1024x1024/apps/${desktopIcon}.png
+        rm -rf temp_extracted
+      elif [ -f "$out/lib/${pname}/resources/app/resources/linux/code.png" ]; then
+        cp $out/lib/${pname}/resources/app/resources/linux/code.png $out/share/pixmaps/${desktopIcon}.png
+        cp $out/lib/${pname}/resources/app/resources/linux/code.png $out/share/icons/hicolor/1024x1024/apps/${desktopIcon}.png
       fi
 
       runHook postInstall
     '';
   };
+
+  # ── macOS (Darwin) Package ─────────────────────────────────
+
+  darwin-package = stdenv.mkDerivation {
+    inherit pname version meta;
+    src = finalSrc;
+
+    nativeBuildInputs = [ undmg ];
+
+    sourceRoot = ".";
+
+    installPhase = ''
+      runHook preInstall
+
+      mkdir -p $out/Applications
+      cp -r *.app $out/Applications/
+
+      runHook postInstall
+    '';
+  };
 in
-if useFHS then fhs-package else no-fhs-package
+if stdenv.hostPlatform.isDarwin then
+  darwin-package
+else if useFHS then
+  fhs-package
+else
+  no-fhs-package
