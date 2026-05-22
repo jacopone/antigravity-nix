@@ -78,7 +78,7 @@ let
 
   pname = if isIde then "google-antigravity-ide" else "google-antigravity2";
   desktopName = if isIde then "Google Antigravity IDE" else "Google Antigravity";
-  binaryRelPath = if isIde then "bin/antigravity-ide" else "antigravity";
+  binaryRelPath = if isIde then "antigravity-ide" else "antigravity";
   desktopIcon = if isIde then "antigravity-ide" else "antigravity";
   startupWMClass = if isIde then "Antigravity IDE" else "Antigravity";
 
