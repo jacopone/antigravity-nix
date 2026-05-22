@@ -410,13 +410,20 @@ let
       EOF
       chmod +x $out/lib/${pname}/resources/bin/antigravity-tunnel
 
+      # Create an intermediate launcher script that resolves $HOME at runtime
+      cat <<'EOF' > $out/lib/${pname}/launcher.sh
+      #!/bin/sh
+      exec "$1" ${lib.optionalString isIde ''--user-data-dir="$HOME/.antigravity-ide"''} "$@"
+      EOF
+      chmod +x $out/lib/${pname}/launcher.sh
+
       mkdir -p $out/bin
-      makeWrapper $out/lib/${pname}/${binaryRelPath} $out/bin/${desktopIcon} \
+      makeWrapper $out/lib/${pname}/launcher.sh $out/bin/${desktopIcon} \
+        --add-flags $out/lib/${pname}/${binaryRelPath} \
         --set CHROME_BIN ${chrome-wrapper} \
         --set CHROME_PATH ${chrome-wrapper} \
         --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath dlopenLibs}" \
-        --prefix XDG_DATA_DIRS : "${gsettings-desktop-schemas}/share/gsettings-schemas/${gsettings-desktop-schemas.name}:${gtk3}/share/gsettings-schemas/${gtk3.name}" \
-        ${lib.optionalString isIde "--add-flags \"--user-data-dir=$HOME/.antigravity-ide\""}
+        --prefix XDG_DATA_DIRS : "${gsettings-desktop-schemas}/share/gsettings-schemas/${gsettings-desktop-schemas.name}:${gtk3}/share/gsettings-schemas/${gtk3.name}"
 
       # Install icon from the app resources
       mkdir -p $out/share/pixmaps $out/share/icons/hicolor/1024x1024/apps
