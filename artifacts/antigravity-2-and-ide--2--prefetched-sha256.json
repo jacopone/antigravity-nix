@@ -11,12 +11,12 @@
   },
   "Antigravity IDE": {
     "macos": {
-      "apple silicon": "sha256-bILfxiD+EqxH0G7CSl5tqYuxIGHMK1l6jFaLB3F+N6o=",
-      "intel": "sha256-jVk+QyvEKJpNqhkoYMRvgs1iFsGIwrMZrbyujV12mGE="
+      "apple silicon": "sha256-5+J1+O8WvsQpsGS7haH3i3i0WepEzH9y+1tKPyd2Xok=",
+      "intel": "sha256-Fon3t9VN87QcidOmDoiRu4ayWp8BSvr1YxogbrZhpwE="
     },
     "linux": {
-      "x64": "sha256-dHFjqjqK+6SzFvl8QLSnXKRzall2ikFs0eiB5z7DHvk=",
-      "arm64": "sha256-OOnMC+t9d4Lg57JBDlCUXVbWY5GnmYneORubpUSiaX4="
+      "x64": "sha256-ALX9cJ/vAsn4GrTt136NW6+LhYQsxlT6AW19BJLN6AM=",
+      "arm64": "sha256-i6cHPHH0PGJfv7lb0LDFx9hUl01bTMkPbg//ShCSWbo="
     }
   }
 }

@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
-  "url": "https://storage.googleapis.com/antigravity-public/antigravity-cli/1.0.0-5288553236791296/linux-arm/cli_linux_arm64.tar.gz",
-  "sha512": "9797c7955d0e07fc57605f81fab16dfd2f390d43b2508af3ca697b1cfa498e37e43a3a9a55ad8b26eb1353d80bbec522d108eb75a0eb0eb00e979cb579d6e277"
+  "version": "1.0.1",
+  "url": "https://storage.googleapis.com/antigravity-public/antigravity-cli/1.0.1-5826024320139264/linux-arm/cli_linux_arm64.tar.gz",
+  "sha512": "a55c5a6cff9796997d104b7130fc3b2b9f4f01cf61be606b6cd1929e49d221f2da32659152e13bdb4707fd7d1c501d2ad72e11c089a7ea7887ccd1c65beb0672"
 }
