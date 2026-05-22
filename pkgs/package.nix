@@ -413,7 +413,9 @@ let
       # Create an intermediate launcher script that resolves $HOME at runtime
       cat <<'EOF' > $out/lib/${pname}/launcher.sh
       #!/bin/sh
-      exec "$1" ${lib.optionalString isIde ''--user-data-dir="$HOME/.antigravity-ide"''} "$@"
+      bin="$1"
+      shift
+      exec "$bin" ${lib.optionalString isIde ''--user-data-dir="$HOME/.antigravity-ide"''} "$@"
       EOF
       chmod +x $out/lib/${pname}/launcher.sh
 
