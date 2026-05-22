@@ -176,7 +176,7 @@ let
     name = desktopIcon;
     desktopName = desktopName;
     comment = "Next-generation agentic IDE";
-    exec = "${desktopIcon} --enable-features=UseOzonePlatform,WaylandWindowDecorations --ozone-platform-hint=auto --enable-wayland-ime=true --wayland-text-input-version=3 %U";
+    exec = "${desktopIcon} %U";
     icon = desktopIcon;
     categories = [
       "Development"
