@@ -60,13 +60,12 @@
 let
   isIde = appType == "Antigravity IDE";
 
-  versions = builtins.fromJSON (
-    builtins.readFile ../artifacts/versions.json
-  );
+  versions = builtins.fromJSON (builtins.readFile ../artifacts/versions.json);
 
   system = stdenv.hostPlatform.system;
 
-  platformInfo = versions.${appType}.${system} or (throw "Unsupported system for Antigravity ${appType}: ${system}");
+  platformInfo =
+    versions.${appType}.${system} or (throw "Unsupported system for Antigravity ${appType}: ${system}");
 
   finalUrl = platformInfo.url;
   finalHash = platformInfo.hash;
@@ -184,7 +183,7 @@ let
       "IDE"
     ];
     startupNotify = true;
-    startupWMClass = startupWMClass;
+    inherit startupWMClass;
     mimeTypes = [
       "x-scheme-handler/antigravity"
     ];
