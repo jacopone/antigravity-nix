@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**antigravity-nix** is an auto-updating Nix Flake that packages Google Antigravity (a proprietary agentic AI platform) for NixOS and Darwin systems. It uses API endpoints to detect new versions of the IDE, Base App, and CLI tools, automatically creating PRs with updates daily at 07:00 UTC.
+**antigravity-nix** is an auto-updating Nix Flake that packages Google Antigravity (a proprietary agentic AI platform) for NixOS and Darwin systems. It uses API endpoints to detect new versions of the Base App, IDE, and CLI tools, automatically creating PRs with updates daily at 07:00 UTC.
 
 **Key Challenge**: The Antigravity GUI distributions are binaries that require a standard Linux filesystem layout, which conflicts with NixOS's unique structure. This is solved using `buildFHSEnv` or `autoPatchelfHook` in a multi-component architecture.
 
@@ -13,9 +13,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Component-Based Packaging
 
 The flake now supports three discrete packages under the `pkgs/` directory:
-
-1. `google-antigravity-ide` (`pkgs/google-antigravity-ide.nix`): The default package, replacing the older single-binary approach.
-2. `google-antigravity` (`pkgs/google-antigravity2.nix`): The Antigravity 2.0 Base App.
+1. `google-antigravity` (`pkgs/google-antigravity2.nix`): The default package, for the Antigravity 2.0 Base App.
+2. `google-antigravity-ide` (`pkgs/google-antigravity-ide.nix`): The Antigravity IDE.
 3. `google-antigravity-cli` (`pkgs/cli.nix`): The lightweight `agy` terminal CLI.
 
 The GUI packages share the heavy-lifting extraction and FHS-wrapping logic via `pkgs/package.nix`.
@@ -23,7 +22,6 @@ The GUI packages share the heavy-lifting extraction and FHS-wrapping logic via `
 ### Chrome Integration Strategy
 
 Antigravity GUI apps require Chrome to be available. The `package.nix` wrapper:
-
 - Forces use of the user's existing Chrome profile (`~/.config/google-chrome`)
 - Ensures any Chrome extensions the user has installed are available to Antigravity
 - Sets `CHROME_BIN` and `CHROME_PATH` environment variables
@@ -43,7 +41,7 @@ The update workflow uses API requests (via `curl` and `jq`) to Google Cloud Run 
 ### Building and Testing
 
 ```bash
-# Build the default package (IDE)
+# Build the default package (Base App)
 nix build .#default
 
 # Test run without installing
@@ -112,7 +110,6 @@ The three workflows work together:
 3. **cleanup-branches.yml**: Deletes merged `auto-update/*` branches
 
 **Release workflow** (release.yml) only runs when:
-
 - `artifacts/versions.json` is modified
 - Release tag doesn't already exist
 
@@ -125,7 +122,7 @@ Before committing changes to packaging:
 nix build .#default --rebuild
 
 # 2. Test the binary runs
-./result/bin/antigravity-ide --version
+./result/bin/antigravity --version
 
 # 3. Verify flake metadata
 nix flake metadata

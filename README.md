@@ -2,11 +2,13 @@
 
 Auto-updating Nix Flake for Google Antigravity -- zero configuration, multi-platform, version-pinned.
 
-[![Update Antigravity](https://github.com/jacopone/antigravity-nix/actions/workflows/update.yml/badge.svg)](https://github.com/jacopone/antigravity-nix/actions/workflows/update.yml) [![Flake Check](https://img.shields.io/badge/flake-check%20passing-success)](https://github.com/jacopone/antigravity-nix) [![NixOS](https://img.shields.io/badge/NixOS-ready-blue?logo=nixos)](https://nixos.org)
+[![Update Antigravity](https://github.com/jacopone/antigravity-nix/actions/workflows/update.yml/badge.svg)](https://github.com/jacopone/antigravity-nix/actions/workflows/update.yml)
+[![Flake Check](https://img.shields.io/badge/flake-check%20passing-success)](https://github.com/jacopone/antigravity-nix)
+[![NixOS](https://img.shields.io/badge/NixOS-ready-blue?logo=nixos)](https://nixos.org)
 
 ## What This Provides
 
-- **Three Components**: Packages for Antigravity IDE, Antigravity 2.0 (Base App), and Antigravity CLI (`agy`).
+- **Three Components**: Packages for Antigravity 2.0 (Base App), Antigravity IDE, and Antigravity CLI (`agy`).
 - **FHS environment** wrapping the upstream GUI binaries with all required libraries.
 - **Automated updates** via GitHub Actions (daily at 0700 UTC), with hash verification and build testing.
 - **Multi-platform** support for x86_64-linux, aarch64-linux, x86_64-darwin, and aarch64-darwin.
@@ -14,14 +16,17 @@ Auto-updating Nix Flake for Google Antigravity -- zero configuration, multi-plat
 
 ## Quick Start
 
-Run the Antigravity IDE:
-
+Run the Antigravity Base App (default):
 ```bash
 nix run github:jacopone/antigravity-nix
 ```
 
-Run the CLI tool (`agy`):
+Run the Antigravity IDE:
+```bash
+nix run github:jacopone/antigravity-nix#google-antigravity-ide
+```
 
+Run the CLI tool (`agy`):
 ```bash
 nix run github:jacopone/antigravity-nix#google-antigravity-cli
 ```
@@ -48,8 +53,8 @@ Add to your `flake.nix`:
       modules = [
         {
           environment.systemPackages = [
-            antigravity-nix.packages.x86_64-linux.default # Antigravity IDE
-            antigravity-nix.packages.x86_64-linux.google-antigravity # Base App
+            antigravity-nix.packages.x86_64-linux.default # Base App
+            antigravity-nix.packages.x86_64-linux.google-antigravity-ide # IDE
             antigravity-nix.packages.x86_64-linux.google-antigravity-cli # CLI
           ];
         }
@@ -79,6 +84,7 @@ Add to your `flake.nix`:
         {
           home.packages = [
             antigravity-nix.packages.x86_64-linux.default
+            antigravity-nix.packages.x86_64-linux.google-antigravity-ide
             antigravity-nix.packages.x86_64-linux.google-antigravity-cli
           ];
         }
@@ -97,6 +103,7 @@ Add to your `flake.nix`:
   ];
 
   environment.systemPackages = with pkgs; [
+    google-antigravity
     google-antigravity-ide
     google-antigravity-cli
   ];
@@ -105,12 +112,12 @@ Add to your `flake.nix`:
 
 ## Package Variants
 
-For the GUI applications (`google-antigravity-ide` and `google-antigravity`), two packaging strategies are available:
+For the GUI applications (`google-antigravity` and `google-antigravity-ide`), two packaging strategies are available:
 
-| Variant                              | Strategy                   | Trade-off                                                |
-| ------------------------------------ | -------------------------- | -------------------------------------------------------- |
-| `default` / `google-antigravity-ide` | `buildFHSEnv` + bubblewrap | Sandboxed, but inherits `no_new_privileges` restrictions |
-| `google-antigravity-ide-no-fhs`      | `autoPatchelfHook`         | No sandbox, full system integration                      |
+| Variant | Strategy | Trade-off |
+|---|---|---|
+| `default` / `google-antigravity` | `buildFHSEnv` + bubblewrap | Sandboxed, but inherits `no_new_privileges` restrictions |
+| `google-antigravity-no-fhs` | `autoPatchelfHook` | No sandbox, full system integration |
 
 The **default** uses `buildFHSEnv` to create an isolated FHS environment via bubblewrap. This is the most compatible approach, but the sandbox sets the kernel's `no_new_privileges` flag, which prevents privilege escalation (`sudo`, `pkexec`) and can cause issues with nested namespaces.
 
@@ -119,14 +126,14 @@ The **no-fhs** variant uses `autoPatchelfHook` to patch ELF binaries directly, t
 ```nix
 # Use the no-fhs variant
 home.packages = [
-  antigravity-nix.packages.${system}.google-antigravity-ide-no-fhs
+  antigravity-nix.packages.${system}.google-antigravity-no-fhs
 ];
 ```
 
 Or via override:
 
 ```nix
-google-antigravity-ide.override { useFHS = false; }
+google-antigravity.override { useFHS = false; }
 ```
 
 ### Chrome Profile Isolation
@@ -134,7 +141,7 @@ google-antigravity-ide.override { useFHS = false; }
 By default, Antigravity GUI apps use your system Chrome profile (`~/.config/google-chrome`), giving access to your installed extensions. To run with an isolated Chrome profile instead (e.g., when testing untrusted apps):
 
 ```nix
-google-antigravity-ide.override { useSystemChromeProfile = false; }
+google-antigravity.override { useSystemChromeProfile = false; }
 ```
 
 This omits the `--user-data-dir` and `--profile-directory` flags, letting Chrome manage its own profile independently. Works with both FHS and non-FHS variants.
@@ -142,8 +149,8 @@ This omits the `--user-data-dir` and `--profile-directory` flags, letting Chrome
 ## Usage
 
 ```bash
-antigravity-ide              # launch Antigravity IDE
 antigravity                  # launch Antigravity Base App
+antigravity-ide              # launch Antigravity IDE
 agy                          # use the Antigravity CLI
 ```
 
@@ -176,7 +183,7 @@ If the default `fetchurl` path fails — Google CDN unreachable, regional restri
 
 ```nix
 (antigravity-nix.packages.${system}.default.override {
-  srcOverride = /absolute/path/to/Antigravity_IDE.tar.gz;
+  srcOverride = /absolute/path/to/Antigravity.tar.gz;
 })
 ```
 

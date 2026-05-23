@@ -19,7 +19,7 @@
         };
       in {
         packages = {
-          default = pkgs.callPackage ./pkgs/google-antigravity-ide.nix {};
+          default = pkgs.callPackage ./pkgs/google-antigravity2.nix {};
           google-antigravity = pkgs.callPackage ./pkgs/google-antigravity2.nix {};
           google-antigravity-no-fhs = pkgs.callPackage ./pkgs/google-antigravity2.nix {useFHS = false;};
           google-antigravity-ide = pkgs.callPackage ./pkgs/google-antigravity-ide.nix {};
