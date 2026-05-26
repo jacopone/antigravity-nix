@@ -90,7 +90,7 @@ When updating versions in `artifacts/versions.json`, hashes must be converted to
 2. Convert to SRI format with `nix hash to-sri`
 3. Update `artifacts/versions.json` with the SRI hash (`sha256-...` or `sha512-...`)
 
-**Never** use fake/placeholder hashes - the build will fail and CI won't catch it until runtime.
+**Never** use fake/placeholder hashes. The `update.yml` workflow runs `nix flake check` + `nix build` on the updated packages before opening a PR (and `scripts/test.mjs` does the same locally), so a wrong hash fails CI rather than reaching users.
 
 ### FHS Environment Dependencies
 
@@ -105,7 +105,7 @@ The `targetPkgs` list in `pkgs/package.nix` includes all libraries the GUI apps 
 
 The three workflows work together:
 
-1. **update.yml**: Runs daily at 07:00 UTC, creates PRs, enables auto-merge
+1. **update.yml**: Runs daily at 07:00 UTC; on a version change it runs `nix flake check` + `nix build` to verify the new hashes, then creates a PR and enables auto-merge
 2. **release.yml**: Triggers on `artifacts/versions.json` changes to main, creates GitHub releases
 3. **cleanup-branches.yml**: Deletes merged `auto-update/*` branches
 
@@ -132,6 +132,9 @@ nix flake check
 
 # 5. Test CLI
 nix run .#google-antigravity-cli -- --version
+
+# 6. Full integration test (builds all 5 packages + smoke-checks the binaries)
+node scripts/test.mjs
 ```
 
 ## Common Issues

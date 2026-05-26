@@ -50,10 +50,16 @@ jobs:
             if git diff --quiet artifacts/versions.json; then
               echo "has_changes=false" >> $GITHUB_OUTPUT
             else
-              # Extract the newest version string to use in the PR title/branch
-              NEW_VERSION=$(grep -oP '[0-9]+\.[0-9]+\.[0-9]+-[0-9]+' artifacts/versions.json | sort -r | head -1)
-              echo "Detected new version: $NEW_VERSION"
-              echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+              extract_version() { jq -r ".\"$1\".\"x86_64-linux\".url" artifacts/versions.json | grep -oP '[0-9]+\.[0-9]+\.[0-9]+-[0-9]+'; }
+              APP_VERSION=$(extract_version "Antigravity 2.0")
+              IDE_VERSION=$(extract_version "Antigravity IDE")
+              CLI_VERSION=$(extract_version "Antigravity CLI")
+              # The 2.0 app is the flagship/default; track its version for the branch + release tag.
+              echo "Detected versions — app: $APP_VERSION, ide: $IDE_VERSION, cli: $CLI_VERSION"
+              echo "new_version=$APP_VERSION" >> $GITHUB_OUTPUT
+              echo "app_version=$APP_VERSION" >> $GITHUB_OUTPUT
+              echo "ide_version=$IDE_VERSION" >> $GITHUB_OUTPUT
+              echo "cli_version=$CLI_VERSION" >> $GITHUB_OUTPUT
               echo "has_changes=true" >> $GITHUB_OUTPUT
             fi
           else
@@ -63,19 +69,30 @@ jobs:
             exit 1
           fi
 
+      - name: Verify packages build
+        if: steps.update.outputs.has_changes == 'true'
+        run: |
+          echo "Running flake check..."
+          nix flake check
+          echo "Building updated packages (verifies the new hashes before opening a PR)..."
+          nix build .#default .#google-antigravity-ide .#google-antigravity-cli --no-link --print-build-logs
+
       - name: Create Pull Request
         if: steps.update.outputs.has_changes == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "chore: update antigravity to ${{ steps.update.outputs.new_version }}"
-          title: "chore: update antigravity to ${{ steps.update.outputs.new_version }}"
+          commit-message: "chore: update antigravity (app ${{ steps.update.outputs.app_version }}, ide ${{ steps.update.outputs.ide_version }}, cli ${{ steps.update.outputs.cli_version }})"
+          title: "chore: update antigravity (app ${{ steps.update.outputs.app_version }}, ide ${{ steps.update.outputs.ide_version }}, cli ${{ steps.update.outputs.cli_version }})"
           body: |
             ## Google Antigravity Update
 
             This PR updates the Google Antigravity Nix flake packages.
             
-            Latest detected version: **${{ steps.update.outputs.new_version }}**.
+            Detected versions:
+            - **Antigravity 2.0 app** (`default`): `${{ steps.update.outputs.app_version }}`
+            - **Antigravity IDE**: `${{ steps.update.outputs.ide_version }}`
+            - **Antigravity CLI** (`agy`): `${{ steps.update.outputs.cli_version }}`
 
             ### Changes
             - Updated versions and hashes in `artifacts/versions.json`

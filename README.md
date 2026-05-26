@@ -14,6 +14,16 @@ Auto-updating Nix Flake for Google Antigravity -- zero configuration, multi-plat
 - **Multi-platform** support for x86_64-linux, aarch64-linux, x86_64-darwin, and aarch64-darwin.
 - **Version pinning** through tagged releases for reproducible builds.
 
+## Migrating from Antigravity 1.x
+
+Antigravity 2.0 (May 2026) split the product into three packages, and this flake's defaults changed to match:
+
+- **`default` / `google-antigravity` is now the standalone Antigravity 2.0 app** (agent orchestration), not the IDE. In the 1.x flake this attribute was the IDE.
+- **The IDE is now `google-antigravity-ide`** (`antigravity-ide` on `PATH`). It remains available, but Google is steering users toward the 2.0 app, so treat it as legacy.
+- **The CLI (`agy`) is new** — it is the successor to the Gemini CLI.
+
+If your config referenced `google-antigravity` / `google-antigravity-no-fhs` expecting the IDE, switch to `google-antigravity-ide` / `google-antigravity-ide-no-fhs`. Because this flake pins versions, you upgrade on your own schedule (`nix flake update antigravity-nix`) — unlike the upstream app, an update here can never silently replace your IDE.
+
 ## Quick Start
 
 Run the Antigravity Base App (default):

@@ -13,9 +13,8 @@ let
   manifest =
     versions."Antigravity CLI".${system} or (throw "Unsupported system for Antigravity CLI: ${system}");
 
-  # The CLI artifact currently stores version inside the manifest, but we need to extract it from the URL or add it to JSON.
-  # Actually, the update-version.sh script did not store the version string for CLI, it just stored url and hash.
-  # Let's extract the version from the URL here like we do in package.nix.
+  # versions.json stores only the CLI url + hash, so derive the version from
+  # the URL path (e.g. .../antigravity-cli/1.0.2-6109799369277440/...).
   version =
     let
       match = builtins.match ".*/([0-9]+\\.[0-9]+\\.[0-9]+-[0-9]+)/.*" manifest.url;
