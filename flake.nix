@@ -19,9 +19,12 @@
         };
       in {
         packages = {
-          default = pkgs.callPackage ./package.nix {};
-          google-antigravity = pkgs.callPackage ./package.nix {};
-          google-antigravity-no-fhs = pkgs.callPackage ./package.nix {useFHS = false;};
+          default = pkgs.callPackage ./pkgs/google-antigravity2.nix {};
+          google-antigravity = pkgs.callPackage ./pkgs/google-antigravity2.nix {};
+          google-antigravity-no-fhs = pkgs.callPackage ./pkgs/google-antigravity2.nix {useFHS = false;};
+          google-antigravity-ide = pkgs.callPackage ./pkgs/google-antigravity-ide.nix {};
+          google-antigravity-ide-no-fhs = pkgs.callPackage ./pkgs/google-antigravity-ide.nix {useFHS = false;};
+          google-antigravity-cli = pkgs.callPackage ./pkgs/cli.nix {};
         };
 
         # Development shell for working on this flake
@@ -41,22 +44,19 @@
             echo "  ./scripts/check-version.sh  - Check current vs latest version"
             echo "  ./scripts/update-version.sh - Update to latest version"
             echo ""
-            echo "First time setup:"
-            echo "  npm install  - Install playwright-chromium locally"
-            echo ""
-            echo "Note: Requires google-chrome-stable to be installed system-wide for browser automation"
+            echo "Note: Requires google-chrome-stable to be installed system-wide for browser-based apps"
           '';
         };
       }
     )
     // {
-      # Version information for auto-update
-      version = "1.23.2-4781536860569600";
-
       # Overlay for easy integration into NixOS configurations
       overlays.default = final: prev: {
-        google-antigravity = final.callPackage ./package.nix {};
-        google-antigravity-no-fhs = final.callPackage ./package.nix {useFHS = false;};
+        google-antigravity = final.callPackage ./pkgs/google-antigravity2.nix {};
+        google-antigravity-no-fhs = final.callPackage ./pkgs/google-antigravity2.nix {useFHS = false;};
+        google-antigravity-ide = final.callPackage ./pkgs/google-antigravity-ide.nix {};
+        google-antigravity-ide-no-fhs = final.callPackage ./pkgs/google-antigravity-ide.nix {useFHS = false;};
+        google-antigravity-cli = final.callPackage ./pkgs/cli.nix {};
       };
     };
 }

@@ -1,45 +1,63 @@
-#!/usr/bin/env bash
-# Quick version check script - shows current vs latest without updating
+#!/usr/bin/env nix-shell
+#!nix-shell -i bash -p jq curl
 
 set -euo pipefail
 
+cd "$(dirname "$0")/.."
+
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+RED='\033[0;31m'
 NC='\033[0m'
 
 echo "Checking Antigravity versions..."
+echo ""
 
-# Get current version
-CURRENT=$(grep -oP 'version = "\K[^"]+' flake.nix | head -1)
-echo -e "${GREEN}Current version:${NC} $CURRENT"
+VERSIONS_JSON="artifacts/versions.json"
 
-# Get latest version
-echo "Fetching latest version from antigravity.google..."
-if command -v node &>/dev/null && [[ -f "scripts/scrape-version.js" ]]; then
-    if node -e "require('playwright-chromium')" 2>/dev/null; then
-        LATEST=$(CHROME_BIN=${CHROME_BIN:-/run/current-system/sw/bin/google-chrome-stable} node scripts/scrape-version.js)
-        if [[ -n "$LATEST" ]] && [[ "$LATEST" =~ ^[0-9.]+-[0-9]+$ ]]; then
-            echo -e "${GREEN}Latest version:${NC}  $LATEST"
-            
-            if [[ "$CURRENT" == "$LATEST" ]]; then
-                echo -e "\n${GREEN}✓ Already at latest version!${NC}"
-                exit 0
-            else
-                echo -e "\n${YELLOW}⚠ Update available!${NC}"
-                echo "  Current: $CURRENT"
-                echo "  Latest:  $LATEST"
-                exit 1
-            fi
-        else
-            echo "Error: Could not parse version from scraper output"
-            exit 1
-        fi
-    else
-        echo "Error: playwright-chromium not installed"
-        echo "Install with: npm install -g playwright-chromium && npx playwright install chromium"
-        exit 1
-    fi
-else
-    echo "Error: Node.js or scrape-version.js not found"
+if [[ ! -f "$VERSIONS_JSON" ]]; then
+    echo -e "${RED}Error: $VERSIONS_JSON not found. Run update-version.sh first!${NC}"
     exit 1
 fi
+
+check_app() {
+	local name="$1"
+	local url="$2"
+
+	echo "--- $name ---"
+
+	local current
+	if [[ "$name" == "Antigravity CLI" ]]; then
+		local current_url=$(jq -r ".\"$name\".\"x86_64-linux\".url" "$VERSIONS_JSON" 2>/dev/null || echo "")
+		current=$(echo "$current_url" | grep -oP 'antigravity-cli/\K[0-9.]+-[0-9]+' || echo "unknown")
+	else
+		local current_url=$(jq -r ".\"$name\".\"x86_64-linux\".url" "$VERSIONS_JSON" 2>/dev/null || echo "")
+		current=$(echo "$current_url" | grep -oP '[0-9]+\.[0-9]+\.[0-9]+-[0-9]+' || echo "unknown")
+	fi
+
+	echo -e "Current version: $current"
+
+	local latest
+	if [[ "$name" == "Antigravity CLI" ]]; then
+		latest=$(curl -sL "$url" | jq -r '.url | match("antigravity-cli/([0-9.]+-[0-9]+)/").captures[0].string' 2>/dev/null || echo "")
+	else
+		latest=$(curl -sL "$url" | jq -r '.[0] | .version + "-" + .execution_id' 2>/dev/null || echo "")
+	fi
+
+	if [[ -n "$latest" && "$latest" != "null-null" ]]; then
+		echo -e "Latest version:  $latest"
+
+		if [[ "$current" == "$latest" ]]; then
+			echo -e "${GREEN}✓ Already at latest version!${NC}"
+		else
+			echo -e "${YELLOW}⚠ Update available!${NC}"
+		fi
+	else
+		echo -e "${RED}Error: Could not parse version from API${NC}"
+	fi
+	echo ""
+}
+
+check_app "Antigravity 2.0" "https://antigravity-auto-updater-974169037036.us-central1.run.app/releases"
+check_app "Antigravity CLI" "https://antigravity-cli-auto-updater-974169037036.us-central1.run.app/manifests/linux_amd64.json"
+check_app "Antigravity IDE" "https://antigravity-ide-auto-updater-974169037036.us-central1.run.app/releases"

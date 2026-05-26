@@ -1,195 +1,158 @@
-#!/usr/bin/env bash
-# Auto-update script for Google Antigravity
+#!/usr/bin/env nix-shell
+#!nix-shell -i bash -p jq curl
 
 set -euo pipefail
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+cd "$(dirname "$0")/.."
 
-log_info() {
-    echo -e "${GREEN}[INFO]${NC} $*" >&2
+OUTPUT_JSON="artifacts/versions.json"
+
+log_info() { echo -e "\033[0;32m[INFO]\033[0m $*" >&2; }
+log_error() { echo -e "\033[0;31m[ERROR]\033[0m $*" >&2; }
+
+mkdir -p artifacts
+if [[ ! -f "$OUTPUT_JSON" ]]; then
+    echo "{}" > "$OUTPUT_JSON"
+fi
+
+log_info "Fetching IDE/App latest versions..."
+APP_VER=$(curl -sL "https://antigravity-auto-updater-974169037036.us-central1.run.app/releases" | jq -r '.[0] | .version + "-" + .execution_id')
+IDE_VER=$(curl -sL "https://antigravity-ide-auto-updater-974169037036.us-central1.run.app/releases" | jq -r '.[0] | .version + "-" + .execution_id')
+
+if [[ -z "$APP_VER" || "$APP_VER" == "null-null" ]]; then log_error "Failed to fetch App version"; exit 1; fi
+if [[ -z "$IDE_VER" || "$IDE_VER" == "null-null" ]]; then log_error "Failed to fetch IDE version"; exit 1; fi
+
+get_hash() {
+    local url=$1
+    local name_arg=$2
+    if [[ -n "$name_arg" ]]; then
+        nix-prefetch-url --type sha256 --name "$name_arg" "$url" || echo ""
+    else
+        nix-prefetch-url --type sha256 "$url" || echo ""
+    fi
 }
 
-log_warn() {
-    echo -e "${YELLOW}[WARN]${NC} $*" >&2
+to_sri() {
+    local hash=$1
+    if [[ -n "$hash" ]]; then
+        nix hash to-sri --type sha256 "$hash"
+    else
+        echo ""
+    fi
 }
 
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $*" >&2
-}
-
-# Function to extract version from download page
-get_latest_version() {
-    log_info "Fetching latest version from antigravity.google..."
-
-    # Try browser scraping if Node.js and scraping script are available
-    if command -v node &>/dev/null && [[ -f "$(dirname "$0")/scrape-version.js" ]]; then
-        log_info "Using browser scraping (JavaScript-rendered page detected)"
-
-        # Check if playwright is available
-        if node -e "require('playwright-chromium')" 2>/dev/null; then
-            local version
-            # Scraper outputs version to stdout, logs to stderr - capture only stdout
-            version=$(node "$(dirname "$0")/scrape-version.js" 2>/dev/null | tr -d '\n\r')
-
-            if [[ -n "$version" ]] && [[ "$version" =~ ^[0-9.]+-[0-9]+$ ]]; then
-                echo "$version"
-                return 0
-            else
-                log_warn "Browser scraping returned invalid version: [$version]"
-                log_warn "Falling back to curl"
-            fi
-        else
-            log_warn "Playwright not available, falling back to curl"
+process_app() {
+    local name="$1"
+    local version="$2"
+    local base_url="$3"
+    local is_ide="$4"
+    
+    # Check existing version
+    local current_url=$(jq -r ".\"$name\".\"x86_64-linux\".url" "$OUTPUT_JSON" 2>/dev/null || echo "null")
+    if [[ "$current_url" != "null" ]]; then
+        local current_version=$(echo "$current_url" | grep -oP '[0-9]+\.[0-9]+\.[0-9]+-[0-9]+' || echo "unknown")
+        if [[ "$current_version" == "$version" ]]; then
+            log_info "$name is already at latest version ($version). Skipping download..."
+            return 0
         fi
     fi
+    
+    log_info "Updating $name to $version..."
+    
+    # Define standard platforms mapping
+    local platforms=(
+        "x86_64-linux:linux-x64:Antigravity${is_ide:+%20IDE}.tar.gz"
+        "aarch64-linux:linux-arm:Antigravity${is_ide:+%20IDE}.tar.gz"
+        "x86_64-darwin:darwin-x64:Antigravity${is_ide:+%20IDE}.dmg"
+        "aarch64-darwin:darwin-arm:Antigravity${is_ide:+%20IDE}.dmg"
+    )
+    
+    local jq_payload="{}"
+    
+    for plat in "${platforms[@]}"; do
+        IFS=':' read -r nix_os api_os filename <<< "$plat"
+        log_info "Fetching hash for $name on $nix_os..."
+        local url="${base_url}/${version}/${api_os}/${filename}"
+        
+        # Always provide a safe name to avoid illegal characters (like %20) in the Nix store path
+        local current_name_arg=""
+        if [[ "$is_ide" == "true" ]]; then
+            if [[ "$nix_os" == *linux* ]]; then
+                current_name_arg="Antigravity_IDE.tar.gz"
+            else
+                current_name_arg="Antigravity_IDE.dmg"
+            fi
+        fi
 
-    # Fallback: Try curl (will likely fail for JavaScript-rendered pages)
-    log_info "Attempting curl scraping..."
-
-    local download_page
-    download_page=$(curl -sL --compressed "https://antigravity.google/download/linux" 2>/dev/null || echo "")
-
-    # Check if download page was fetched successfully
-    if [[ -z "$download_page" ]]; then
-        log_error "Failed to fetch download page from antigravity.google"
-        log_warn "Keeping current version (network issue or page unavailable)"
-        return 1
-    fi
-
-    # Extract version from the download URL
-    # The URL pattern is: https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable/VERSION/linux-x64/Antigravity.tar.gz
-    local version
-    version=$(echo "$download_page" | tr -d '\000' | grep -oP 'antigravity/stable/\K[0-9.]+-[0-9]+' | head -1)
-
-    if [[ -z "$version" ]]; then
-        log_error "Could not extract version from download page"
-        log_warn "Page format may have changed. Consider using browser scraping."
-        return 1
-    fi
-
-    echo "$version"
+        local hash=$(get_hash "$url" "$current_name_arg")
+        local sri_hash=$(to_sri "$hash")
+        
+        if [[ -z "$sri_hash" ]]; then
+            log_error "Failed to get hash for $url"
+            exit 1
+        fi
+        
+        jq_payload=$(echo "$jq_payload" | jq --arg plat "$nix_os" --arg url "$url" --arg hash "$sri_hash" \
+            '.[$plat] = {url: $url, hash: $hash}')
+    done
+    
+    local tmp_json=$(mktemp)
+    jq --arg name "$name" --argjson payload "$jq_payload" '.[$name] = $payload' "$OUTPUT_JSON" > "$tmp_json"
+    mv "$tmp_json" "$OUTPUT_JSON"
 }
 
-# Function to get current version from flake
-get_current_version() {
-    grep -oP 'version = "\K[^"]+' flake.nix | head -1
-}
+process_app "Antigravity 2.0" "$APP_VER" "https://storage.googleapis.com/antigravity-public/antigravity-hub" ""
+process_app "Antigravity IDE" "$IDE_VER" "https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable" "true"
 
-# Function to update version in files
-update_version() {
-    local new_version="$1"
+log_info "Fetching CLI latest versions..."
 
-    log_info "Updating version to $new_version..."
+# Get CLI latest version to check if we can skip
+CLI_LATEST_URL=$(curl -sL "https://antigravity-cli-auto-updater-974169037036.us-central1.run.app/manifests/linux_amd64.json" | jq -r '.url' || echo "")
+CLI_LATEST_VER=$(echo "$CLI_LATEST_URL" | grep -oP 'antigravity-cli/\K[0-9.]+-[0-9]+' || echo "")
 
-    # Update flake.nix
-    sed -i "s/version = \".*\"/version = \"$new_version\"/" flake.nix
-
-    # Update package.nix
-    sed -i "s/version = \".*\"/version = \"$new_version\"/" package.nix
-
-    log_info "Version updated in flake.nix and package.nix"
-}
-
-# Function to update hash
-update_hash() {
-    local new_version="$1"
-    local url="https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable/${new_version}/linux-x64/Antigravity.tar.gz"
-
-    log_info "Fetching hash for new version..."
-
-    # Use nix-prefetch-url to get the correct hash
-    local hash
-    hash=$(nix-prefetch-url --type sha256 "$url" 2>/dev/null)
-
-    if [[ -z "$hash" ]]; then
-        log_error "Could not fetch hash for new version"
-        return 1
+if [[ -n "$CLI_LATEST_VER" ]]; then
+    CLI_CURRENT_URL=$(jq -r '."Antigravity CLI"."x86_64-linux".url' "$OUTPUT_JSON" 2>/dev/null || echo "null")
+    if [[ "$CLI_CURRENT_URL" != "null" ]]; then
+        CLI_CURRENT_VER=$(echo "$CLI_CURRENT_URL" | grep -oP 'antigravity-cli/\K[0-9.]+-[0-9]+' || echo "unknown")
+        if [[ "$CLI_CURRENT_VER" == "$CLI_LATEST_VER" ]]; then
+            log_info "Antigravity CLI is already at latest version ($CLI_LATEST_VER). Skipping download..."
+            log_info "Done! $OUTPUT_JSON is up to date."
+            exit 0
+        fi
     fi
+fi
 
-    # Convert to SRI hash format
-    local sri_hash
-    sri_hash=$(nix hash to-sri --type sha256 "$hash")
+log_info "Updating Antigravity CLI..."
+cli_payload="{}"
 
-    log_info "New hash: $sri_hash"
+CLI_PLATFORMS=(
+    "x86_64-linux:linux_amd64"
+    "aarch64-linux:linux_arm64"
+    "x86_64-darwin:darwin_amd64"
+    "aarch64-darwin:darwin_arm64"
+)
 
-    # Update package.nix with new hash
-    sed -i "s|sha256 = \"sha256-.*\"|sha256 = \"$sri_hash\"|" package.nix
-
-    log_info "Hash updated in package.nix"
-}
-
-# Function to test build
-test_build() {
-    log_info "Testing build..."
-
-    if nix build .#default --no-link; then
-        log_info "Build test successful!"
-        return 0
-    else
-        log_error "Build test failed!"
-        return 1
-    fi
-}
-
-# Main script
-main() {
-    cd "$(dirname "$0")/.."
-
-    log_info "Starting Google Antigravity update check..."
-
-    # Get current version
-    local current_version
-    current_version=$(get_current_version)
-    log_info "Current version: $current_version"
-
-    # Get latest version
-    local latest_version
-    if ! latest_version=$(get_latest_version); then
-        log_warn "Could not fetch latest version. Keeping current version."
-        exit 0
-    fi
-
-    # Validate we got a version
-    if [[ -z "$latest_version" ]]; then
-        log_error "get_latest_version returned empty string"
+for plat in "${CLI_PLATFORMS[@]}"; do
+    IFS=':' read -r nix_os api_os <<< "$plat"
+    log_info "Fetching CLI manifest for $nix_os..."
+    manifest_url="https://antigravity-cli-auto-updater-974169037036.us-central1.run.app/manifests/${api_os}.json"
+    manifest_json=$(curl -sL "$manifest_url" || echo "")
+    
+    if [[ -z "$manifest_json" ]]; then
+        log_error "Failed to fetch manifest: $manifest_url"
         exit 1
     fi
+    
+    url=$(echo "$manifest_json" | jq -r '.url')
+    hash=$(echo "$manifest_json" | jq -r '.sha512')
+    sri_hash="sha512-$hash"
+    
+    cli_payload=$(echo "$cli_payload" | jq --arg plat "$nix_os" --arg url "$url" --arg hash "$sri_hash" \
+        '.[$plat] = {url: $url, hash: $hash}')
+done
 
-    log_info "Latest version: $latest_version"
+tmp_json=$(mktemp)
+jq --argjson payload "$cli_payload" '.["Antigravity CLI"] = $payload' "$OUTPUT_JSON" > "$tmp_json"
+mv "$tmp_json" "$OUTPUT_JSON"
 
-    # Check if update is needed
-    if [[ "$current_version" == "$latest_version" ]]; then
-        log_info "Already at latest version. No update needed."
-        exit 0
-    fi
-
-    log_warn "New version available: $latest_version"
-
-    # Update version
-    update_version "$latest_version"
-
-    # Update hash
-    update_hash "$latest_version"
-
-    # Test build
-    if ! test_build; then
-        log_error "Build failed after update. Please check manually."
-        exit 1
-    fi
-
-    log_info "Update complete! Version updated from $current_version to $latest_version"
-
-    # Optionally commit changes
-    if command -v git &> /dev/null && [[ -d .git ]]; then
-        log_info "Committing changes..."
-        git add flake.nix package.nix
-        git commit -m "chore: update Google Antigravity to version $latest_version"
-        log_info "Changes committed. Don't forget to push!"
-    fi
-}
-
-main "$@"
+log_info "Done! Updated $OUTPUT_JSON"

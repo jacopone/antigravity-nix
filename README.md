@@ -8,15 +8,37 @@ Auto-updating Nix Flake for Google Antigravity -- zero configuration, multi-plat
 
 ## What This Provides
 
-- **FHS environment** wrapping the upstream binary with all required libraries
-- **Automated updates** via GitHub Actions (daily at 0700 UTC), with hash verification and build testing
-- **Multi-platform** support for x86_64-linux, aarch64-linux, x86_64-darwin, and aarch64-darwin
-- **Version pinning** through tagged releases for reproducible builds
+- **Three Components**: Packages for Antigravity 2.0 (Base App), Antigravity IDE, and Antigravity CLI (`agy`).
+- **FHS environment** wrapping the upstream GUI binaries with all required libraries.
+- **Automated updates** via GitHub Actions (daily at 0700 UTC), with hash verification and build testing.
+- **Multi-platform**: Linux (`x86_64`, `aarch64`) is built and verified in CI. macOS (`x86_64-darwin`, `aarch64-darwin`) packages are provided and evaluate, but are **experimental and currently untested** — see [macOS](#macos-experimental).
+- **Version pinning** through tagged releases for reproducible builds.
+
+## Migrating from Antigravity 1.x
+
+Antigravity 2.0 (May 2026) split the product into three packages, and this flake's defaults changed to match:
+
+- **`default` / `google-antigravity` is now the standalone Antigravity 2.0 app** (agent orchestration), not the IDE. In the 1.x flake this attribute was the IDE.
+- **The IDE is now `google-antigravity-ide`** (`antigravity-ide` on `PATH`). It remains available, but Google is steering users toward the 2.0 app, so treat it as legacy.
+- **The CLI (`agy`) is new** — it is the successor to the Gemini CLI.
+
+If your config referenced `google-antigravity` / `google-antigravity-no-fhs` expecting the IDE, switch to `google-antigravity-ide` / `google-antigravity-ide-no-fhs`. Because this flake pins versions, you upgrade on your own schedule (`nix flake update antigravity-nix`) — unlike the upstream app, an update here can never silently replace your IDE.
 
 ## Quick Start
 
+Run the Antigravity Base App (default):
 ```bash
 nix run github:jacopone/antigravity-nix
+```
+
+Run the Antigravity IDE:
+```bash
+nix run github:jacopone/antigravity-nix#google-antigravity-ide
+```
+
+Run the CLI tool (`agy`):
+```bash
+nix run github:jacopone/antigravity-nix#google-antigravity-cli
 ```
 
 ## Installation
@@ -41,7 +63,9 @@ Add to your `flake.nix`:
       modules = [
         {
           environment.systemPackages = [
-            antigravity-nix.packages.x86_64-linux.default
+            antigravity-nix.packages.x86_64-linux.default # Base App
+            antigravity-nix.packages.x86_64-linux.google-antigravity-ide # IDE
+            antigravity-nix.packages.x86_64-linux.google-antigravity-cli # CLI
           ];
         }
       ];
@@ -70,6 +94,8 @@ Add to your `flake.nix`:
         {
           home.packages = [
             antigravity-nix.packages.x86_64-linux.default
+            antigravity-nix.packages.x86_64-linux.google-antigravity-ide
+            antigravity-nix.packages.x86_64-linux.google-antigravity-cli
           ];
         }
       ];
@@ -88,13 +114,15 @@ Add to your `flake.nix`:
 
   environment.systemPackages = with pkgs; [
     google-antigravity
+    google-antigravity-ide
+    google-antigravity-cli
   ];
 }
 ```
 
 ## Package Variants
 
-Two packaging strategies are available:
+For the GUI applications (`google-antigravity` and `google-antigravity-ide`), two packaging strategies are available:
 
 | Variant | Strategy | Trade-off |
 |---|---|---|
@@ -120,7 +148,7 @@ google-antigravity.override { useFHS = false; }
 
 ### Chrome Profile Isolation
 
-By default, Antigravity uses your system Chrome profile (`~/.config/google-chrome`), giving it access to your installed extensions. To run with an isolated Chrome profile instead (e.g., when testing untrusted apps):
+By default, Antigravity GUI apps use your system Chrome profile (`~/.config/google-chrome`), giving access to your installed extensions. To run with an isolated Chrome profile instead (e.g., when testing untrusted apps):
 
 ```nix
 google-antigravity.override { useSystemChromeProfile = false; }
@@ -131,8 +159,9 @@ This omits the `--user-data-dir` and `--profile-directory` flags, letting Chrome
 ## Usage
 
 ```bash
-antigravity                  # launch from terminal
-antigravity /path/to/project # open a specific project
+antigravity                  # launch Antigravity Base App
+antigravity-ide              # launch Antigravity IDE
+agy                          # use the Antigravity CLI
 ```
 
 ## Version Pinning
@@ -142,7 +171,7 @@ antigravity /path/to/project # open a specific project
 inputs.antigravity-nix.url = "github:jacopone/antigravity-nix";
 
 # Pin to a specific release
-inputs.antigravity-nix.url = "github:jacopone/antigravity-nix/v1.11.2-6251250307170304";
+inputs.antigravity-nix.url = "github:jacopone/antigravity-nix/v2.0.3-6242596486512640";
 ```
 
 Update to the latest version:
@@ -155,11 +184,19 @@ All releases: https://github.com/jacopone/antigravity-nix/releases
 
 ## Troubleshooting
 
+### IDE Freezes on Close (Known Upstream Issue)
+
+The Antigravity IDE currently has a known bug across all Linux distributions (not just NixOS) where it may freeze the system upon closing. As a workaround, you can force-kill the process immediately *after* closing the window to prevent the freeze (do not run this before closing, or your work may not be saved):
+
+```bash
+pkill -9 -f antigravity-ide
+```
+
 ### `fetchurl` fails or hash mismatches
 
 If the default `fetchurl` path fails — Google CDN unreachable, regional restrictions, hash drift after an upstream republish, corporate firewall — you can supply the tarball locally via `srcOverride`:
 
-1. Download `Antigravity.tar.gz` from https://antigravity.google/download/linux
+1. Download the respective tarball from Antigravity.
 2. Point the package at it:
 
 ```nix
@@ -168,13 +205,17 @@ If the default `fetchurl` path fails — Google CDN unreachable, regional restri
 })
 ```
 
-This bypasses `fetchurl` while keeping the rest of the packaging (FHS wrapping, Chrome integration, desktop entry) intact. No `--impure` and no patching `package.nix` required. Works for both the `default` and `google-antigravity-no-fhs` variants.
+This bypasses `fetchurl` while keeping the rest of the packaging (FHS wrapping, Chrome integration, desktop entry) intact. No `--impure` and no patching required. Works for both the `default` and `no-fhs` variants.
 
 ## Requirements
 
 - Nix with flakes enabled
 - `allowUnfree = true` (Antigravity is proprietary software)
 - On `aarch64-linux`, Chromium is used automatically since Google Chrome is unavailable
+
+### macOS (experimental)
+
+The darwin packages (`x86_64-darwin`, `aarch64-darwin`) evaluate and fetch the official macOS builds, but are **untested** — CI builds and verifies Linux only. The CLI (`agy`, a plain binary) is the most likely to work; the GUI apps copy the `.app` into `$out/Applications` without code-signing or quarantine handling and may not launch cleanly. Reports and fixes from macOS users are welcome.
 
 ## Contributing
 

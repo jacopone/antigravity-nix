@@ -11,7 +11,7 @@ on:
     branches:
       - master
     paths:
-      - "package.nix"
+      - "artifacts/versions.json"
   # Allow manual trigger
   workflow_dispatch:
 
@@ -39,10 +39,19 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Get current version from flake.nix
-          CURRENT_VERSION=$(grep -oP 'version = "\K[^"]+' flake.nix | head -1)
+          extract_version() { jq -r ".\"$1\".\"x86_64-linux\".url" artifacts/versions.json | grep -oP '[0-9]+\.[0-9]+\.[0-9]+-[0-9]+'; }
+
+          # The 2.0 app is the flagship/default package, so the release is tagged by its version.
+          APP_VERSION=$(extract_version "Antigravity 2.0")
+          IDE_VERSION=$(extract_version "Antigravity IDE")
+          CLI_VERSION=$(extract_version "Antigravity CLI")
+          CURRENT_VERSION="$APP_VERSION"
+
           echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-          echo "Current version: $CURRENT_VERSION"
+          echo "app_version=$APP_VERSION" >> $GITHUB_OUTPUT
+          echo "ide_version=$IDE_VERSION" >> $GITHUB_OUTPUT
+          echo "cli_version=$CLI_VERSION" >> $GITHUB_OUTPUT
+          echo "Versions — app: $APP_VERSION, ide: $IDE_VERSION, cli: $CLI_VERSION"
 
           # Check if release already exists for this version
           if gh release view "v$CURRENT_VERSION" >/dev/null 2>&1; then
@@ -58,6 +67,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.release_check.outputs.current_version }}
+          APP_VERSION: ${{ steps.release_check.outputs.app_version }}
+          IDE_VERSION: ${{ steps.release_check.outputs.ide_version }}
+          CLI_VERSION: ${{ steps.release_check.outputs.cli_version }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -66,7 +78,13 @@ jobs:
 
           gh release create "v$VERSION" \
             --title "Google Antigravity v$VERSION" \
-            --notes "Auto-updated Google Antigravity to version $VERSION.
+            --notes "Auto-updated Google Antigravity packages.
+
+          | Component | Version |
+          | --- | --- |
+          | Antigravity 2.0 app (\`default\`) | $APP_VERSION |
+          | Antigravity IDE | $IDE_VERSION |
+          | Antigravity CLI (\`agy\`) | $CLI_VERSION |
 
           ## Installation
 
@@ -78,11 +96,10 @@ jobs:
 
           See: https://antigravity.google/releases
 
-          ## Features
+          ## Notes
 
-          - 🤖 Agentic IDE: Next-generation AI-powered development
-          - 🚀 Auto-updating: Updates daily at 07:00 UTC
           - 📦 Multi-platform: Linux & macOS (x86_64, aarch64)
-          - 🔧 FHS Environment: Maximum compatibility"
+          - 🔧 FHS + no-FHS variants for the GUI apps
+          - ✅ Hashes verified by build before release"
 
           echo "✓ Created release v$VERSION"
