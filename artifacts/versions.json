@@ -1,20 +1,20 @@
 {
   "Antigravity 2.0": {
     "x86_64-linux": {
-      "url": "https://storage.googleapis.com/antigravity-public/antigravity-hub/2.0.1-6566078776737792/linux-x64/Antigravity.tar.gz",
-      "hash": "sha256-Byfh9WlhttI0eUHyeNppzGwX3jvv6YhSSEjNFnOA6as="
+      "url": "https://storage.googleapis.com/antigravity-public/antigravity-hub/2.0.0-6324554176528384/linux-x64/Antigravity.tar.gz",
+      "hash": "sha256-FLyctIClvo+zt9w+Kwzr+mbTcK1YzB4PoBFA0SBNQpc="
     },
     "aarch64-linux": {
-      "url": "https://storage.googleapis.com/antigravity-public/antigravity-hub/2.0.1-6566078776737792/linux-arm/Antigravity.tar.gz",
-      "hash": "sha256-WvVsyd2pVPNpphBFt9ovNIvLCzUH0nK0wOmqfNYXXZs="
+      "url": "https://storage.googleapis.com/antigravity-public/antigravity-hub/2.0.0-6324554176528384/linux-arm/Antigravity.tar.gz",
+      "hash": "sha256-Qt9fSfwg2p3weW5/aJENqGh/Awr1PY2ISgp/oiiFceA="
     },
     "x86_64-darwin": {
-      "url": "https://storage.googleapis.com/antigravity-public/antigravity-hub/2.0.1-6566078776737792/darwin-x64/Antigravity.dmg",
-      "hash": "sha256-3UsGCpi1a2a9EiwxUurcDNmwLmoLRnSMlcs+oTp9RXs="
+      "url": "https://storage.googleapis.com/antigravity-public/antigravity-hub/2.0.0-6324554176528384/darwin-x64/Antigravity.dmg",
+      "hash": "sha256-dBZWG4GGZlZFPVGBD/ZMGb/cQbX6vKLKJT6fg157IKY="
     },
     "aarch64-darwin": {
-      "url": "https://storage.googleapis.com/antigravity-public/antigravity-hub/2.0.1-6566078776737792/darwin-arm/Antigravity.dmg",
-      "hash": "sha256-KHjxZxNVBgCnHCXz6lYAfEcqeWK7ddWK5BqSGa+x49I="
+      "url": "https://storage.googleapis.com/antigravity-public/antigravity-hub/2.0.0-6324554176528384/darwin-arm/Antigravity.dmg",
+      "hash": "sha256-+Ww2C+DcQZGG+Ycnawqh+MIt7xt27sCJJTfBk+a/T90="
     }
   },
   "Antigravity IDE": {
