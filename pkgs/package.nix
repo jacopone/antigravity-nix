@@ -72,7 +72,7 @@ let
 
   version =
     let
-      match = builtins.match ".*\/([0-9]+\\.[0-9]+\\.[0-9]+-[0-9]+)\/.*" finalUrl;
+      match = builtins.match ".*/([0-9]+\\.[0-9]+\\.[0-9]+-[0-9]+)/.*" finalUrl;
     in
     if match != null then builtins.elemAt match 0 else "unknown";
 
