@@ -78,7 +78,13 @@ let
 
   pname = if isIde then "google-antigravity-ide" else "google-antigravity2";
   desktopName = if isIde then "Google Antigravity IDE" else "Google Antigravity";
-  binaryRelPath = if isIde then "antigravity-ide" else "antigravity";
+  # For the IDE, launch through the bundled CLI launcher (bin/antigravity-ide)
+  # rather than the top-level Electron binary. The launcher runs the app via
+  # resources/app/out/cli.js, which hands the arguments to a running or newly
+  # spawned detached window and returns, so `antigravity-ide <FOLDER>` gives the
+  # shell back instead of blocking it (v1 behaviour; see issue #55). The base app
+  # tarball ships no bin/ launcher and no cli.js, so it keeps exec'ing its binary.
+  binaryRelPath = if isIde then "bin/antigravity-ide" else "antigravity";
   desktopIcon = if isIde then "antigravity-ide" else "antigravity";
   startupWMClass = if isIde then "Antigravity IDE" else "Antigravity";
 
