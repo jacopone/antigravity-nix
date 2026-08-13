@@ -19,20 +19,20 @@
   },
   "Antigravity IDE": {
     "x86_64-linux": {
-      "url": "https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable/2.1.1-6123990880747520/linux-x64/Antigravity%20IDE.tar.gz",
-      "hash": "sha256-Wyzr99M6aNAD/Y8fqYjRYAkFrOIlBKCF5ThCFCkIeL0="
+      "url": "https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable/2.5.2-6697361355964416/linux-x64/Antigravity%20IDE.tar.gz",
+      "hash": "sha256-33WDofjiY3wJCMUWOMfiF+su04ezqqMJVQX+KJGeQBg="
     },
     "aarch64-linux": {
-      "url": "https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable/2.1.1-6123990880747520/linux-arm/Antigravity%20IDE.tar.gz",
-      "hash": "sha256-xrb++Xz8B4rn+S0C+Ug6EkN7ZgLH0yKn1EVmjC8MFqY="
+      "url": "https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable/2.5.2-6697361355964416/linux-arm/Antigravity%20IDE.tar.gz",
+      "hash": "sha256-H70obYTOQG5nEWcOzjOOrDRp1VrpXgIvR1rOwQ8CD5o="
     },
     "x86_64-darwin": {
-      "url": "https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable/2.1.1-6123990880747520/darwin-x64/Antigravity%20IDE.dmg",
-      "hash": "sha256-sr1wODX8BVj/zEDoCqeOEo72OX6/JueBQrQiR9fQuLc="
+      "url": "https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable/2.5.2-6697361355964416/darwin-x64/Antigravity%20IDE.dmg",
+      "hash": "sha256-AR/VO83QekM6JoPKF6jsw8HT+EZXcptY9a4RIDm4lXw="
     },
     "aarch64-darwin": {
-      "url": "https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable/2.1.1-6123990880747520/darwin-arm/Antigravity%20IDE.dmg",
-      "hash": "sha256-4KEy8zXDaOLfh0Zi9Ynq/KKWl6UUAgF663RxAmvdGyk="
+      "url": "https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable/2.5.2-6697361355964416/darwin-arm/Antigravity%20IDE.dmg",
+      "hash": "sha256-51Ghu1Ufc2ZbMzmPE9K5DWsHxpMTGNNMC0l5K9ipSdY="
     }
   },
   "Antigravity CLI": {
