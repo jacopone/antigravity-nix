@@ -58,6 +58,6 @@ check_app() {
 	echo ""
 }
 
-check_app "Antigravity 2.0" "https://antigravity-auto-updater-974169037036.us-central1.run.app/releases"
+check_app "Antigravity 2.0" "https://antigravity-hub-auto-updater-974169037036.us-central1.run.app/releases"
 check_app "Antigravity CLI" "https://antigravity-cli-auto-updater-974169037036.us-central1.run.app/manifests/linux_amd64.json"
 check_app "Antigravity IDE" "https://antigravity-ide-auto-updater-974169037036.us-central1.run.app/releases"

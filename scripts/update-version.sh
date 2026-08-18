@@ -16,7 +16,7 @@ if [[ ! -f "$OUTPUT_JSON" ]]; then
 fi
 
 log_info "Fetching IDE/App latest versions..."
-APP_VER=$(curl -sL "https://antigravity-auto-updater-974169037036.us-central1.run.app/releases" | jq -r '.[0] | .version + "-" + .execution_id')
+APP_VER=$(curl -sL "https://antigravity-hub-auto-updater-974169037036.us-central1.run.app/releases" | jq -r '.[0] | .version + "-" + .execution_id')
 IDE_VER=$(curl -sL "https://antigravity-ide-auto-updater-974169037036.us-central1.run.app/releases" | jq -r '.[0] | .version + "-" + .execution_id')
 
 if [[ -z "$APP_VER" || "$APP_VER" == "null-null" ]]; then log_error "Failed to fetch App version"; exit 1; fi
