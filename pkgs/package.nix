@@ -49,7 +49,7 @@
   libxshmfence,
   libxkbfile,
   zlib,
-  undmg,
+  _7zz,
   appType,
   useFHS ? true,
   useSystemChromeProfile ? true,
@@ -455,7 +455,7 @@ let
     inherit pname version meta;
     src = finalSrc;
 
-    nativeBuildInputs = [ undmg ];
+    nativeBuildInputs = [ _7zz ];
 
     sourceRoot = ".";
 
@@ -463,7 +463,13 @@ let
       runHook preInstall
 
       mkdir -p $out/Applications
-      cp -r *.app $out/Applications/
+
+      appDir=$(find . -mindepth 1 -maxdepth 3 -type d -name "*.app" | head -n 1)
+      if [ -z "$appDir" ]; then
+        echo "error: no .app bundle found in extracted DMG" >&2
+        exit 1
+      fi
+      cp -r "$appDir" $out/Applications/
 
       runHook postInstall
     '';
