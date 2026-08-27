@@ -50,6 +50,7 @@
   libxkbfile,
   zlib,
   _7zz,
+  darwin,
   appType,
   useFHS ? true,
   useSystemChromeProfile ? true,
@@ -455,21 +456,35 @@ let
     inherit pname version meta;
     src = finalSrc;
 
-    nativeBuildInputs = [ _7zz ];
+    nativeBuildInputs = [
+      _7zz
+      darwin.sigtool
+    ];
 
     sourceRoot = ".";
+
+    dontFixup = true;
 
     installPhase = ''
       runHook preInstall
 
       mkdir -p $out/Applications
 
-      appDir=$(find . -mindepth 1 -maxdepth 3 -type d -name "*.app" | head -n 1)
-      if [ -z "$appDir" ]; then
-        echo "error: no .app bundle found in extracted DMG" >&2
+      shopt -s nullglob
+      apps=( ./*.app ./*/*.app )
+      if [ ''${#apps[@]} -ne 1 ]; then
+        echo "error: expected exactly one .app bundle in DMG, found ''${#apps[@]}: ''${apps[*]}" >&2
         exit 1
       fi
+      appDir="''${apps[0]}"
       cp -r "$appDir" $out/Applications/
+
+      destApp="$out/Applications/$(basename "$appDir")"
+      for exe in "$destApp"/Contents/MacOS/*; do
+        if [ -f "$exe" ] && [ -x "$exe" ]; then
+          codesign --force --sign - "$exe"
+        fi
+      done
 
       runHook postInstall
     '';
