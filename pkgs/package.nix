@@ -26,6 +26,8 @@
   libgbm,
   libglvnd,
   libnotify,
+  libpulseaudio,
+  pipewire,
   libsecret,
   libuuid,
   libxkbcommon,
@@ -137,6 +139,7 @@ let
     systemdLibs
     libnotify
     libsecret
+    libpulseaudio
   ];
 
   # Libraries linked normally (resolved by autoPatchelf via rpath)
@@ -431,6 +434,7 @@ let
         --set CHROME_BIN ${chrome-wrapper} \
         --set CHROME_PATH ${chrome-wrapper} \
         --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath dlopenLibs}" \
+        --set ALSA_PLUGIN_DIR "${pipewire}/lib/alsa-lib" \
         --prefix XDG_DATA_DIRS : "${gsettings-desktop-schemas}/share/gsettings-schemas/${gsettings-desktop-schemas.name}:${gtk3}/share/gsettings-schemas/${gtk3.name}"
 
       # Install icon from the app resources
