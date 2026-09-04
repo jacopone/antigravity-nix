@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A new push supersedes an in-flight run for the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    name: Linux (x86_64)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+        env:
+          DISABLE_FLAKEHUB: "true"
+        with:
+          flakehub: false
+          extra-conf: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - name: Setup Nix cache
+        uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Flake check
+        run: nix flake check --print-build-logs
+
+      # Evaluates the Darwin derivations from Linux. Cheap, and it catches
+      # packaging mistakes in the Darwin branch of pkgs/package.nix that no
+      # Linux build would ever touch.
+      - name: Evaluate Darwin derivations
+        run: |
+          for system in aarch64-darwin x86_64-darwin; do
+            for pkg in default google-antigravity-ide google-antigravity-cli; do
+              echo "==> $system.$pkg"
+              nix eval --raw ".#packages.$system.$pkg.drvPath"
+              echo
+            done
+          done
+
+      - name: Integration test (builds all packages, smoke-checks binaries)
+        run: node scripts/test.mjs --nocolor
+
+  darwin:
+    name: macOS (aarch64)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+        env:
+          DISABLE_FLAKEHUB: "true"
+        with:
+          flakehub: false
+          extra-conf: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - name: Setup Nix cache
+        uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Flake check
+        run: nix flake check --print-build-logs
+
+      # The Darwin path unpacks an APFS .dmg with 7zz, locates the .app bundle
+      # and ad-hoc re-signs it. None of that is reachable from a Linux runner,
+      # so build it here.
+      - name: Build packages
+        run: |
+          nix build .#default .#google-antigravity-ide .#google-antigravity-cli \
+            --no-link --print-build-logs
+
+      # Guards the failure this package has actually hit: the .app sits at the
+      # top level of one DMG but inside a volume-named subfolder in the other,
+      # so a change to the bundle lookup can silently install nothing.
+      - name: Verify the .app bundles were installed
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          for attr in default google-antigravity-ide; do
+            out=$(nix build ".#$attr" --no-link --print-out-paths)
+            echo "==> $attr -> $out"
+            apps=( "$out"/Applications/*.app )
+            if [ ${#apps[@]} -ne 1 ]; then
+              echo "error: expected exactly one .app in $out/Applications, found ${#apps[@]}" >&2
+              ls -la "$out/Applications" >&2 || true
+              exit 1
+            fi
+            app="${apps[0]}"
+            exe=""
+            for f in "$app"/Contents/MacOS/*; do
+              if [ -f "$f" ] && [ -x "$f" ]; then exe="$f"; break; fi
+            done
+            if [ -z "$exe" ]; then
+              echo "error: no executable in $app/Contents/MacOS" >&2
+              exit 1
+            fi
+            echo "ok: $app ($(basename "$exe"))"
+            # Informational only. The package ad-hoc re-signs the main
+            # executable but leaves the vendor's _CodeSignature in place, so a
+            # strict bundle verification is not a meaningful gate here.
+            codesign -dv "$exe" 2>&1 || true
+          done
+
+      - name: Verify the CLI runs
+        run: |
+          set -euo pipefail
+          cli=$(nix build .#google-antigravity-cli --no-link --print-out-paths)
+          "$cli/bin/agy" --version
