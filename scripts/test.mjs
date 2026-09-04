@@ -56,11 +56,14 @@ const builds = [
   { name: 'CLI',              attr: 'google-antigravity-cli',         outLink: 'result-test-cli',        bin: 'bin/agy' },
 ];
 
+// The download URL carries "<semver>-<build id>" (e.g. 1.1.26-5550154686791680),
+// but `agy --version` prints the semver alone. Assert on that part and keep the
+// build id only for reporting.
 function expectedCliVersion() {
   const versions = JSON.parse(fs.readFileSync(path.join(repoRoot, 'artifacts/versions.json'), 'utf8'));
   const url = versions['Antigravity CLI']?.['x86_64-linux']?.url ?? '';
-  const m = url.match(/\/([0-9]+\.[0-9]+\.[0-9]+-[0-9]+)\//);
-  return m ? m[1] : null;
+  const m = url.match(/\/([0-9]+\.[0-9]+\.[0-9]+)-([0-9]+)\//);
+  return m ? { semver: m[1], full: `${m[1]}-${m[2]}` } : null;
 }
 
 async function main() {
@@ -81,10 +84,10 @@ async function main() {
     const expected = expectedCliVersion();
     const versionOut = await runVerify(`${cliBin} --version`);
     console.log(versionOut);
-    if (expected && !versionOut.includes(expected)) {
-      throw new Error(`CLI --version "${versionOut}" does not contain expected version "${expected}"`);
+    if (expected && !versionOut.includes(expected.semver)) {
+      throw new Error(`CLI --version "${versionOut}" does not contain expected version "${expected.semver}" (packaged build ${expected.full})`);
     }
-    logSuccess(`CLI --version reports the packaged version (${expected ?? 'unknown'}).`);
+    logSuccess(`CLI --version reports the packaged version (${expected ? expected.full : 'unknown'}).`);
     await runVerify(`${cliBin} changelog`);
     logSuccess('CLI `changelog` ran successfully.');
 
