@@ -49,7 +49,8 @@
   libxshmfence,
   libxkbfile,
   zlib,
-  undmg,
+  _7zz,
+  darwin,
   appType,
   useFHS ? true,
   useSystemChromeProfile ? true,
@@ -455,15 +456,35 @@ let
     inherit pname version meta;
     src = finalSrc;
 
-    nativeBuildInputs = [ undmg ];
+    nativeBuildInputs = [
+      _7zz
+      darwin.sigtool
+    ];
 
     sourceRoot = ".";
+
+    dontFixup = true;
 
     installPhase = ''
       runHook preInstall
 
       mkdir -p $out/Applications
-      cp -r *.app $out/Applications/
+
+      shopt -s nullglob
+      apps=( ./*.app ./*/*.app )
+      if [ ''${#apps[@]} -ne 1 ]; then
+        echo "error: expected exactly one .app bundle in DMG, found ''${#apps[@]}: ''${apps[*]}" >&2
+        exit 1
+      fi
+      appDir="''${apps[0]}"
+      cp -r "$appDir" $out/Applications/
+
+      destApp="$out/Applications/$(basename "$appDir")"
+      for exe in "$destApp"/Contents/MacOS/*; do
+        if [ -f "$exe" ] && [ -x "$exe" ]; then
+          codesign --force --sign - "$exe"
+        fi
+      done
 
       runHook postInstall
     '';
