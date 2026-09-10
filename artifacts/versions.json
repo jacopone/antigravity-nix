@@ -37,20 +37,20 @@
   },
   "Antigravity CLI": {
     "x86_64-linux": {
-      "url": "https://storage.googleapis.com/antigravity-public/antigravity-cli/1.1.28-5576113066475520/linux-x64/cli_linux_x64.tar.gz",
-      "hash": "sha512-a855c623426fe901088bfe2b4d559b01f5b479a7c5ec0e41acfe129d4fe7deee9fbd9057072cc8e8c19ed65474cafa4f1d10fcdc14fbb85f82f20c3ec94295d4"
+      "url": "https://storage.googleapis.com/antigravity-public/antigravity-cli/1.2.0-5210873191596032/linux-x64/cli_linux_x64.tar.gz",
+      "hash": "sha512-d190b25a04ed2a03b0587838476494ae59d0d324ee6373263cabe584352c254f9051f3689c79ac4add8817ff6eb34b11694acd77002c55e91bd1d28b6dfdae22"
     },
     "aarch64-linux": {
-      "url": "https://storage.googleapis.com/antigravity-public/antigravity-cli/1.1.28-5576113066475520/linux-arm/cli_linux_arm64.tar.gz",
-      "hash": "sha512-2cc17c2a2dfe5c7d2f8088ac16ccfef270933c7844c3c717b3e4f4f94873f865ebddc5943508cbe54b4976c0f9dc478ca71b8c26b8c08d6758d9508788235530"
+      "url": "https://storage.googleapis.com/antigravity-public/antigravity-cli/1.2.0-5210873191596032/linux-arm/cli_linux_arm64.tar.gz",
+      "hash": "sha512-5ad72fba8c8e915c59c5505dc99116058352b8eba7f141d7ed220256788bada30df8b5af65c0d931ff10bbc661c0f5fe83931c58071fe3063a809bbeda7f59f9"
     },
     "x86_64-darwin": {
-      "url": "https://storage.googleapis.com/antigravity-public/antigravity-cli/1.1.28-5576113066475520/darwin-x64/cli_mac_x64.tar.gz",
-      "hash": "sha512-b6fcfaebfb8c868426dc792db4db38d1068a84e5c9aee09f46d041da06ac3a91c5956d7c5f974d3e4e67142da4732c114d7eab4fb198e3a86206d8bdb291fe9f"
+      "url": "https://storage.googleapis.com/antigravity-public/antigravity-cli/1.2.0-5210873191596032/darwin-x64/cli_mac_x64.tar.gz",
+      "hash": "sha512-a69a9253add7765f826b51e080005efff9e09b303aebc4f56a08fad29396d9e4ab49f549f0dfb5b686403a5ffb62031f34d65f98da6929fa4fbeb43c64f641b9"
     },
     "aarch64-darwin": {
-      "url": "https://storage.googleapis.com/antigravity-public/antigravity-cli/1.1.28-5576113066475520/darwin-arm/cli_mac_arm64.tar.gz",
-      "hash": "sha512-84a3bb980b0d967649e66932b04365a578a55609dea9572349a07b114067216447c1fc2f0ff55940fb6657309da665bd3af4fe8aa16af7886e131243b684087f"
+      "url": "https://storage.googleapis.com/antigravity-public/antigravity-cli/1.2.0-5210873191596032/darwin-arm/cli_mac_arm64.tar.gz",
+      "hash": "sha512-7ca4c9d044adc76a1a7b0d5e73fa8b3dc0d56e9e8417f72a747e9bf9ff9783f7a57722c602c2fbb9b5bf5967e4b5568e4f62270480df499fa25ab971c8c2a886"
     }
   }
 }
