@@ -56,7 +56,13 @@
   darwin,
   appType,
   useFHS ? true,
-  useSystemChromeProfile ? true,
+  useUserProfile ? (
+    if useSystemChromeProfile != null then
+      lib.warn "google-antigravity: useSystemChromeProfile is deprecated; use useUserProfile instead." useSystemChromeProfile
+    else
+      true
+  ),
+  useSystemChromeProfile ? null,
   google-chrome ? null,
   browserPkg ? (if stdenv.hostPlatform.isAarch64 && stdenv.hostPlatform.isLinux then chromium else google-chrome),
   browserProfileDir ? (
@@ -123,7 +129,7 @@ let
     fi
 
     exec "${browserExe}" \
-      ${lib.optionalString useSystemChromeProfile ''--user-data-dir="$target_dir" --profile-directory=Default''} \
+      ${lib.optionalString useUserProfile ''--user-data-dir="$target_dir" --profile-directory=Default''} \
       "$@"
   '';
 
