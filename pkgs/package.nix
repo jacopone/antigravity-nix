@@ -8,6 +8,7 @@
   copyDesktopItems,
   makeWrapper,
   writeShellScript,
+  runCommand,
   asar,
   bash,
   alsa-lib,
@@ -57,6 +58,13 @@
   useFHS ? true,
   useSystemChromeProfile ? true,
   google-chrome ? null,
+  browserPkg ? (if stdenv.hostPlatform.isAarch64 && stdenv.hostPlatform.isLinux then chromium else google-chrome),
+  browserProfileDir ? (
+    if browserPkg != null && lib.hasInfix "chromium" (lib.getName browserPkg) then
+      "$HOME/.config/chromium"
+    else
+      "$HOME/.config/google-chrome"
+  ),
   extraBwrapArgs ? [ ],
   srcOverride ? null,
 }:
@@ -91,22 +99,7 @@ let
   desktopIcon = if isIde then "antigravity-ide" else "antigravity";
   startupWMClass = if isIde then "Antigravity IDE" else "Antigravity";
 
-  isAarch64 = system == "aarch64-linux";
-
-  browserPkg =
-    if isAarch64 then
-      chromium
-    else if google-chrome != null then
-      google-chrome
-    else
-      throw ''
-        google-chrome is required on ${stdenv.hostPlatform.system} builds.
-        Make sure you have allowUnfree = true or pass a google-chrome package.
-      '';
-
-  browserCommand = if isAarch64 then "chromium" else "google-chrome-stable";
-
-  browserProfileDir = if isAarch64 then "$HOME/.config/chromium" else "$HOME/.config/google-chrome";
+  browserExe = lib.getExe browserPkg;
 
   finalSrc =
     if srcOverride != null then
@@ -117,20 +110,28 @@ let
         sha256 = finalHash;
       };
 
-  # Create a browser wrapper
-  chrome-wrapper = writeShellScript "${browserCommand}-with-profile" ''
+  # Create a browser wrapper script with DevToolsActivePort forwarding
+  browserScript = writeShellScript "google-chrome-stable" ''
     set -euo pipefail
 
-    system_browser="/run/current-system/sw/bin/${browserCommand}"
-    browser_cmd="$system_browser"
+    target_dir="${browserProfileDir}"
 
-    if [ ! -x "$system_browser" ]; then
-      browser_cmd=${browserPkg}/bin/${browserCommand}
+    # Forward DevToolsActivePort for Puppeteer if not using default google-chrome directory
+    if [ "$target_dir" != "$HOME/.config/google-chrome" ]; then
+      mkdir -p "$HOME/.config/google-chrome"
+      ln -sf "$target_dir/DevToolsActivePort" "$HOME/.config/google-chrome/DevToolsActivePort"
     fi
 
-    exec "$browser_cmd" \
-      ${lib.optionalString useSystemChromeProfile ''--user-data-dir="${browserProfileDir}" --profile-directory=Default''} \
+    exec "${browserExe}" \
+      ${lib.optionalString useSystemChromeProfile ''--user-data-dir="$target_dir" --profile-directory=Default''} \
       "$@"
+  '';
+
+  # Package containing google-chrome-stable wrapper and google-chrome symlink
+  chrome-wrapper = runCommand "antigravity-browser-wrapper" { } ''
+    mkdir -p $out/bin
+    ln -s ${browserScript} $out/bin/google-chrome-stable
+    ln -s ${browserScript} $out/bin/google-chrome
   '';
 
   # Libraries loaded via dlopen() at runtime
@@ -283,8 +284,9 @@ let
       ++ [
         pkgs.udev
         pkgs.libudev0-shim
-      ]
-      ++ lib.optional (browserPkg != null) browserPkg;
+        browserPkg
+        chrome-wrapper
+      ];
 
     extraBwrapArgs = [
       "--bind-try /etc/nixos/ /etc/nixos/"
@@ -296,8 +298,8 @@ let
     runScript = writeShellScript "${pname}-wrapper" ''
       # Set Chrome paths to use our wrapper that forces user profile
       # This ensures extensions installed in user's Chrome profile are available
-      export CHROME_BIN=${chrome-wrapper}
-      export CHROME_PATH=${chrome-wrapper}
+      export CHROME_BIN=${chrome-wrapper}/bin/google-chrome-stable
+      export CHROME_PATH=${chrome-wrapper}/bin/google-chrome-stable
 
       # Fallback for ALSA plugin discovery. On NixOS with
       # services.pipewire.alsa.enable, /etc/alsa/conf.d already points
@@ -438,8 +440,9 @@ let
       mkdir -p $out/bin
       makeWrapper $out/lib/${pname}/launcher.sh $out/bin/${desktopIcon} \
         --add-flags $out/lib/${pname}/${binaryRelPath} \
-        --set CHROME_BIN ${chrome-wrapper} \
-        --set CHROME_PATH ${chrome-wrapper} \
+        --set CHROME_BIN ${chrome-wrapper}/bin/google-chrome-stable \
+        --set CHROME_PATH ${chrome-wrapper}/bin/google-chrome-stable \
+        --prefix PATH : "${lib.makeBinPath [ chrome-wrapper browserPkg ]}" \
         --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath dlopenLibs}" \
         --set-default ALSA_PLUGIN_DIR "${pipewire}/lib/alsa-lib" \
         --prefix XDG_DATA_DIRS : "${gsettings-desktop-schemas}/share/gsettings-schemas/${gsettings-desktop-schemas.name}:${gtk3}/share/gsettings-schemas/${gtk3.name}"
@@ -500,6 +503,11 @@ let
     '';
   };
 in
+assert lib.assertMsg (stdenv.hostPlatform.isDarwin || browserPkg != null) ''
+  No browser package available for Antigravity on ${stdenv.hostPlatform.system}.
+  Make sure you have allowUnfree = true to use google-chrome, or override
+  browserPkg with pkgs.chromium / pkgs.brave.
+'';
 if stdenv.hostPlatform.isDarwin then
   darwin-package
 else if useFHS then

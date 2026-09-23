@@ -19,12 +19,15 @@ The flake now supports three discrete packages under the `pkgs/` directory:
 
 The GUI packages share the heavy-lifting extraction and FHS-wrapping logic via `pkgs/package.nix`.
 
-### Chrome Integration Strategy
+### Browser Integration Strategy
 
-Antigravity GUI apps require Chrome to be available. The `package.nix` wrapper:
-- Forces use of the user's existing Chrome profile (`~/.config/google-chrome`)
-- Ensures any Chrome extensions the user has installed are available to Antigravity
-- Sets `CHROME_BIN` and `CHROME_PATH` environment variables
+Antigravity GUI apps require a Chromium-based browser for features like `/browser` automation. The `package.nix` wrapper:
+- Resolves the browser executable hermetically via `lib.getExe effectiveBrowserPkg` (defaults to `google-chrome` on `x86_64-linux` and `chromium` on `aarch64-linux`).
+- Supports arbitrary browser packages (`pkgs.chromium`, `pkgs.brave`, `pkgs.vivaldi`) via `browserPkg` and `browserProfileDir` overrides.
+- Ensures extensions installed in the user's browser profile are available (`useSystemChromeProfile = true`).
+- Sets `CHROME_BIN` and `CHROME_PATH` environment variables.
+- Dynamically creates a `DevToolsActivePort` symlink when an alternative profile directory is used so Puppeteer CDP connects seamlessly.
+- Exposes `google-chrome-stable` and `google-chrome` on `PATH` via `browserShim` pointing to `chrome-wrapper`.
 
 ### Version Detection Architecture
 

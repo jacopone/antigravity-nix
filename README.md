@@ -146,6 +146,36 @@ Or via override:
 google-antigravity.override { useFHS = false; }
 ```
 
+### Browser Customization & Alternative Browsers
+
+Antigravity GUI applications include hermetic browser integration for features like `/browser` automation. By default, `google-chrome` is used on `x86_64-linux` and `chromium` on `aarch64-linux`.
+
+You can customize the browser package and profile directory using `.override`:
+
+```nix
+# Example 1: Use open-source Chromium with Widevine DRM (browserProfileDir defaults automatically to ~/.config/chromium)
+google-antigravity.override {
+  browserPkg = pkgs.chromium.override { enableWideVine = true; };
+}
+
+# Example 2: Use Brave Browser
+google-antigravity.override {
+  browserPkg = pkgs.brave;
+  browserProfileDir = "$HOME/.config/BraveSoftware/Brave-Browser";
+}
+
+# Example 3: Use Vivaldi
+google-antigravity.override {
+  browserPkg = pkgs.vivaldi;
+  browserProfileDir = "$HOME/.config/vivaldi";
+}
+```
+
+When an alternative browser or profile directory is specified:
+- The executable is automatically resolved from `browserPkg` via `lib.getExe`.
+- A compatibility symlink for `DevToolsActivePort` is created dynamically at runtime so Puppeteer attaches seamlessly.
+- An internal compatibility shim ensures commands looking for `google-chrome-stable` or `google-chrome` on `PATH` invoke your configured browser wrapper.
+
 ### Chrome Profile Isolation
 
 By default, Antigravity GUI apps use your system Chrome profile (`~/.config/google-chrome`), giving access to your installed extensions. To run with an isolated Chrome profile instead (e.g., when testing untrusted apps):
