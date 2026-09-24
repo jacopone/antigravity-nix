@@ -146,15 +146,45 @@ Or via override:
 google-antigravity.override { useFHS = false; }
 ```
 
-### Chrome Profile Isolation
+### Browser Customization & Alternative Browsers
 
-By default, Antigravity GUI apps use your system Chrome profile (`~/.config/google-chrome`), giving access to your installed extensions. To run with an isolated Chrome profile instead (e.g., when testing untrusted apps):
+Antigravity GUI applications include hermetic browser integration for features like `/browser` automation. By default, `google-chrome` is used on `x86_64-linux` and `chromium` on `aarch64-linux`.
+
+You can customize the browser package and profile directory using `.override`:
 
 ```nix
-google-antigravity.override { useSystemChromeProfile = false; }
+# Example 1: Use open-source Chromium (browserProfileDir defaults automatically to ~/.config/chromium)
+google-antigravity.override {
+  browserPkg = pkgs.chromium;
+}
+
+# Example 2: Use Brave Browser
+google-antigravity.override {
+  browserPkg = pkgs.brave;
+  browserProfileDir = "$HOME/.config/BraveSoftware/Brave-Browser";
+}
+
+# Example 3: Use Vivaldi
+google-antigravity.override {
+  browserPkg = pkgs.vivaldi;
+  browserProfileDir = "$HOME/.config/vivaldi";
+}
 ```
 
-This omits the `--user-data-dir` and `--profile-directory` flags, letting Chrome manage its own profile independently. Works with both FHS and non-FHS variants.
+When an alternative browser or profile directory is specified:
+- The executable is automatically resolved from `browserPkg` via `lib.getExe`.
+- A compatibility symlink for `DevToolsActivePort` is created dynamically at runtime so Puppeteer attaches seamlessly.
+- An internal compatibility wrapper (`chrome-wrapper`) ensures commands and automation libraries looking for either `google-chrome-stable` or `google-chrome` on `PATH` invoke your configured browser wrapper.
+
+### Browser Profile Isolation
+
+By default, Antigravity GUI apps use your user browser profile (e.g. `~/.config/google-chrome` or your configured `browserProfileDir`), giving access to your installed extensions. To run with an isolated browser profile instead (e.g., when testing untrusted apps):
+
+```nix
+google-antigravity.override { useUserProfile = false; }
+```
+
+This omits the `--user-data-dir` and `--profile-directory` flags, letting the browser manage its own profile independently. Works with both FHS and non-FHS variants.
 
 ## Usage
 
@@ -210,7 +240,7 @@ This bypasses `fetchurl` while keeping the rest of the packaging (FHS wrapping, 
 ## Requirements
 
 - Nix with flakes enabled
-- `allowUnfree = true` (Antigravity is proprietary software)
+- `allowUnfree = true` (Antigravity is proprietary software, and default `browserPkg` is `google-chrome` on `x86_64-linux`)
 - On `aarch64-linux`, Chromium is used automatically since Google Chrome is unavailable
 
 ### macOS (experimental)

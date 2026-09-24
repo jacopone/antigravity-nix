@@ -19,12 +19,15 @@ The flake now supports three discrete packages under the `pkgs/` directory:
 
 The GUI packages share the heavy-lifting extraction and FHS-wrapping logic via `pkgs/package.nix`.
 
-### Chrome Integration Strategy
+### Browser Integration Strategy
 
-Antigravity GUI apps require Chrome to be available. The `package.nix` wrapper:
-- Forces use of the user's existing Chrome profile (`~/.config/google-chrome`)
-- Ensures any Chrome extensions the user has installed are available to Antigravity
-- Sets `CHROME_BIN` and `CHROME_PATH` environment variables
+Antigravity GUI apps require a Chromium-based browser for features like `/browser` automation. The `package.nix` wrapper:
+- Resolves the browser executable hermetically via `lib.getExe browserPkg` (defaults to `google-chrome` on `x86_64-linux` and `chromium` on `aarch64-linux`).
+- Supports arbitrary browser packages (`pkgs.chromium`, `pkgs.brave`, `pkgs.vivaldi`) via `browserPkg` and `browserProfileDir` overrides.
+- Ensures extensions installed in the user's browser profile are available (`useUserProfile = true`).
+- Sets `CHROME_BIN` and `CHROME_PATH` environment variables.
+- Dynamically creates a `DevToolsActivePort` symlink when an alternative profile directory is used so Puppeteer CDP connects seamlessly.
+- Exposes both `google-chrome-stable` and `google-chrome` on `PATH` via `chrome-wrapper` (matching upstream Linux packaging and tooling discovery fallbacks like Puppeteer/Selenium).
 
 ### Version Detection Architecture
 
@@ -140,13 +143,13 @@ node scripts/test.mjs
 
 ## Common Issues
 
-### "Could not find Chrome" errors
+### "Could not find Chrome" or browser connection errors
 
-The FHS wrapper sets `CHROME_BIN`/`CHROME_PATH` to a wrapper script, not the actual Chrome binary. If Antigravity can't find Chrome:
+The packaging sets `CHROME_BIN`/`CHROME_PATH` to `chrome-wrapper` and exposes both `google-chrome-stable` and `google-chrome` on `PATH`. If Antigravity or `/browser` cannot find or connect to the browser:
 
-1. Verify `google-chrome` is in system packages
-2. Check the wrapper script path in `pkgs/package.nix`
-3. Test: `CHROME_BIN=/path/to/wrapper /path/to/wrapper --version`
+1. Verify `browserPkg` evaluates and is permitted (e.g., `allowUnfree = true` when using default `google-chrome` on `x86_64-linux`, or override with `browserPkg = pkgs.chromium`).
+2. If using an alternative browser (Brave, Vivaldi), verify `browserProfileDir` points to the correct profile directory so `DevToolsActivePort` is symlinked to `~/.config/google-chrome/DevToolsActivePort`.
+3. Check the wrapper script: `CHROME_BIN=/path/to/wrapper/bin/google-chrome-stable /path/to/wrapper/bin/google-chrome-stable --version`.
 
 ### Workflow doesn't create PR
 
