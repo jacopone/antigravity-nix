@@ -44,7 +44,7 @@
             echo "  ./scripts/check-version.sh  - Check current vs latest version"
             echo "  ./scripts/update-version.sh - Update to latest version"
             echo ""
-            echo "Note: Requires google-chrome-stable to be installed system-wide for browser-based apps"
+            echo "Note: browser-based apps use the system-installed browser when present, else the packaged browserPkg"
           '';
         };
       }
