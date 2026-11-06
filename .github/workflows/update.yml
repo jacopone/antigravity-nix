@@ -75,7 +75,9 @@ jobs:
           echo "Running flake check..."
           nix flake check
           echo "Building updated packages (verifies the new hashes before opening a PR)..."
-          nix build .#default .#google-antigravity-ide .#google-antigravity-cli --no-link --print-build-logs
+          # The no-FHS IDE patches the agy extension and fails the build when
+          # an IDE release moves the patch anchors (issue #145).
+          nix build .#default .#google-antigravity-ide .#google-antigravity-ide-no-fhs .#google-antigravity-cli --no-link --print-build-logs
 
       - name: Create Pull Request
         if: steps.update.outputs.has_changes == 'true'

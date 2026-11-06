@@ -91,6 +91,20 @@ async function main() {
     await runVerify(`${cliBin} changelog`);
     logSuccess('CLI `changelog` ran successfully.');
 
+    // IDE no-FHS: the agy extension must spawn the Nix-built CLI as its backend
+    // instead of downloading a generic Linux binary into ~/.gemini/bin, which
+    // cannot run without nix-ld (issue #145).
+    const agyExt = path.join(repoRoot, 'result-test-ide-no-fhs/lib/google-antigravity-ide/resources/app/extensions/agy/vscode/extension.js');
+    const agyStorePath = fs.realpathSync(cliBin);
+    const extSrc = fs.readFileSync(agyExt, 'utf8');
+    for (const patched of [
+      `this.binaryAcquirer=async()=>"${agyStorePath}";`,
+      `getInstalledTargetPath(){return "${agyStorePath}"}`,
+    ]) {
+      if (!extSrc.includes(patched)) throw new Error(`IDE no-FHS: agy extension lacks \`${patched}\``);
+    }
+    logSuccess(`IDE no-FHS: agy extension launches ${agyStorePath}.`);
+
     logSuccess('🎉 All integration tests passed!');
   } catch (err) {
     logError(`FATAL: ${err.message}`);
