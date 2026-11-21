@@ -108,7 +108,7 @@ The `targetPkgs` list in `pkgs/package.nix` includes all libraries the GUI apps 
 
 The three workflows work together:
 
-1. **update.yml**: Runs daily at 07:00 UTC; on a version change it runs `nix flake check` + `nix build` to verify the new hashes, then creates a PR and enables auto-merge
+1. **update.yml**: Runs daily at 07:00 UTC; on a version change it runs `nix flake check` + `nix build` (default, IDE, no-FHS IDE, CLI) to verify the new hashes and the IDE patches, then creates a PR and enables auto-merge
 2. **release.yml**: Triggers on `artifacts/versions.json` changes to main, creates GitHub releases
 3. **cleanup-branches.yml**: Deletes merged `auto-update/*` branches
 
@@ -150,6 +150,10 @@ The packaging sets `CHROME_BIN`/`CHROME_PATH` to `chrome-wrapper` and exposes bo
 1. Verify `browserPkg` evaluates and is permitted (e.g., `allowUnfree = true` when using default `google-chrome` on `x86_64-linux`, or override with `browserPkg = pkgs.chromium`).
 2. If using an alternative browser (Brave, Vivaldi), verify `browserProfileDir` points to the correct profile directory and that `~/.config/google-chrome/DevToolsActivePort` is a symlink into it. A regular file at that path (left by Google Chrome) blocks the link; the launcher prints a warning to stderr.
 3. Check the wrapper script: `CHROME_BIN=/path/to/wrapper/bin/google-chrome-stable /path/to/wrapper/bin/google-chrome-stable --version`.
+
+### IDE no-FHS build fails with "expected one match of … in resources/app/extensions/agy/vscode/extension.js"
+
+The no-FHS IDE patches the minified agy extension so it spawns the Nix-built `agy` instead of downloading one into `~/.gemini/bin` (issue #145). The patch anchors on the `binaryAcquirer` and `getInstalledTargetPath()` class members. When an IDE update renames or restructures them, the build fails, and so does update.yml's "Verify packages build" step, holding back every component's update. Find the new code path (search `extension.js` for `".gemini","bin"`) and update the anchors in `pkgs/package.nix`.
 
 ### Workflow doesn't create PR
 
