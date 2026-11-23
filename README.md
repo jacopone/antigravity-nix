@@ -131,7 +131,7 @@ For the GUI applications (`google-antigravity` and `google-antigravity-ide`), tw
 
 The **default** uses `buildFHSEnv` to create an isolated FHS environment via bubblewrap. This is the most compatible approach, but the sandbox sets the kernel's `no_new_privileges` flag, which prevents privilege escalation (`sudo`, `pkexec`) and can cause issues with nested namespaces.
 
-The **no-fhs** variant uses `autoPatchelfHook` to patch ELF binaries directly, the same approach used by VS Code in nixpkgs. It runs natively on NixOS without sandboxing.
+The **no-fhs** variant uses `autoPatchelfHook` to patch ELF binaries directly, the same approach used by VS Code in nixpkgs. It runs natively on NixOS without sandboxing. The no-fhs IDE runs this flake's `agy` CLI as its agent backend instead of the generic binary the IDE downloads into `~/.gemini/bin`, which cannot run on NixOS without `nix-ld`; override `google-antigravity-cli` to use a different build.
 
 ```nix
 # Use the no-fhs variant

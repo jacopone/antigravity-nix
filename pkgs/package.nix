@@ -54,6 +54,9 @@
   zlib,
   _7zz,
   darwin,
+  callPackage,
+  # Backend the no-FHS IDE spawns in place of the agy binary it would download
+  google-antigravity-cli ? callPackage ./cli.nix { },
   appType,
   useFHS ? true,
   useUserProfile ? (
@@ -436,6 +439,31 @@ let
             --replace-fail "/usr/bin/pkexec" "/run/wrappers/bin/pkexec" \
             --replace-fail "/bin/bash" "${bash}/bin/bash"
         fi
+      fi
+    ''
+    # The IDE's agy extension downloads a generic Linux agy into ~/.gemini/bin
+    # and spawns it as its backend. Outside the FHS environment that binary has
+    # no ELF interpreter (unless nix-ld is enabled), so the spawn fails with
+    # ENOENT (issue #145). Make the extension use the Nix-built CLI instead. The
+    # anchors are class members, whose names survive minification.
+    + lib.optionalString isIde ''
+      ext=resources/app/extensions/agy/vscode/extension.js
+      agy=${lib.getExe google-antigravity-cli}
+      for anchor in 'this\.binaryAcquirer=[A-Za-z0-9_$]+;' 'getInstalledTargetPath\(\)\{return [A-Za-z0-9_$]+\(\)\}'; do
+        n=$(grep -oE "$anchor" "$ext" | wc -l)
+        if [ "$n" -ne 1 ]; then
+          echo "error: expected one match of '$anchor' in $ext, found $n" >&2
+          exit 1
+        fi
+      done
+      sed -E -i \
+        -e "s|this\.binaryAcquirer=[A-Za-z0-9_\$]+;|this.binaryAcquirer=async()=>\"$agy\";|" \
+        -e "s|getInstalledTargetPath\(\)\{return [A-Za-z0-9_\$]+\(\)\}|getInstalledTargetPath(){return \"$agy\"}|" \
+        "$ext"
+      n=$(grep -oF "\"$agy\"" "$ext" | wc -l)
+      if [ "$n" -ne 2 ]; then
+        echo "error: expected 2 references to $agy in $ext after patching, found $n" >&2
+        exit 1
       fi
     '';
 
