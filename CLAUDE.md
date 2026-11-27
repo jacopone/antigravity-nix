@@ -106,11 +106,12 @@ The `targetPkgs` list in `pkgs/package.nix` includes all libraries the GUI apps 
 
 ### Workflow Integration
 
-The three workflows work together:
+The four workflows work together:
 
-1. **update.yml**: Runs daily at 07:00 UTC; on a version change it runs `nix flake check` + `nix build` (default, IDE, no-FHS IDE, CLI) to verify the new hashes and the IDE patches, then creates a PR and enables auto-merge
-2. **release.yml**: Triggers on `artifacts/versions.json` changes to main, creates GitHub releases
-3. **cleanup-branches.yml**: Deletes merged `auto-update/*` branches
+1. **update.yml**: Runs daily at 07:00 UTC; on a version change it runs `nix flake check` + `nix build` (default, IDE, no-FHS IDE, CLI) to verify the new hashes and the IDE patches, then creates a PR, dispatches `ci.yml` on its branch and squash-merges it once CI passes. The dispatch is needed because PRs opened by `github-actions[bot]` run `pull_request` workflows only after a user approves them; their `pull_request` CI entry stays `action_required` and is not the gate.
+2. **ci.yml**: Builds and tests on Linux and macOS for PRs, pushes to master and dispatches. A ruleset on master requires its `Linux (x86_64)` and `macOS (aarch64)` checks.
+3. **release.yml**: Triggers when update.yml completes successfully (and on pushes to master that change `artifacts/versions.json`), creates GitHub releases. This is why update.yml waits for the merge instead of using auto-merge.
+4. **cleanup-branches.yml**: Deletes merged `auto-update/*` branches (weekly; bot merges trigger no `pull_request` event)
 
 **Release workflow** (release.yml) only runs when:
 - `artifacts/versions.json` is modified
@@ -154,6 +155,10 @@ The packaging sets `CHROME_BIN`/`CHROME_PATH` to `chrome-wrapper` and exposes bo
 ### IDE no-FHS build fails with "expected one match of … in resources/app/extensions/agy/vscode/extension.js"
 
 The no-FHS IDE patches the minified agy extension so it spawns the Nix-built `agy` instead of downloading one into `~/.gemini/bin` (issue #145). The patch anchors on the `binaryAcquirer` and `getInstalledTargetPath()` class members. When an IDE update renames or restructures them, the build fails, and so does update.yml's "Verify packages build" step, holding back every component's update. Find the new code path (search `extension.js` for `".gemini","bin"`) and update the anchors in `pkgs/package.nix`.
+
+### Update run fails after opening a PR
+
+The "Run CI on the PR and merge it" step failed: CI is red on the PR, or the merge was refused. The PR stays open. Fix the cause and re-run update.yml (`gh workflow run update.yml`): it finds the same branch and dispatches CI again.
 
 ### Workflow doesn't create PR
 

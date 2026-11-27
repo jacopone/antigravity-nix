@@ -9,10 +9,12 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  actions: write # dispatch CI on the update PR
 
 jobs:
   update:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -80,6 +82,7 @@ jobs:
           nix build .#default .#google-antigravity-ide .#google-antigravity-ide-no-fhs .#google-antigravity-cli --no-link --print-build-logs
 
       - name: Create Pull Request
+        id: cpr
         if: steps.update.outputs.has_changes == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
@@ -114,46 +117,66 @@ jobs:
             automated
             antigravity-update
 
-      - name: Enable auto-merge
+      # Bot-opened PRs only run `pull_request` workflows after a user with write
+      # access approves them, so CI never runs on these PRs by itself. A
+      # workflow_dispatch from GITHUB_TOKEN does run, and its checks land on the
+      # PR head commit, where the master ruleset requires them. The merge
+      # happens here, not through auto-merge, because release.yml fires when
+      # this workflow completes and must find the new versions on master.
+      - name: Run CI on the PR and merge it
         if: steps.update.outputs.has_changes == 'true'
+        timeout-minutes: 75
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NEW_VERSION: ${{ steps.update.outputs.new_version }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.cpr.outputs.pull-request-number }}
+          HEAD_SHA: ${{ steps.cpr.outputs.pull-request-head-sha }}
+          BRANCH: ${{ steps.cpr.outputs.pull-request-branch }}
         run: |
-          # Retry loop with exponential backoff to find the PR
-          MAX_ATTEMPTS=5
-          ATTEMPT=1
-          WAIT_TIME=5
+          set -euo pipefail
 
-          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
-            echo "Attempt $ATTEMPT/$MAX_ATTEMPTS: Looking for PR..."
+          if [ -z "$PR_NUMBER" ] || [ -z "$HEAD_SHA" ] || [ -z "$BRANCH" ]; then
+            echo "::error::create-pull-request returned no PR (number='$PR_NUMBER' sha='$HEAD_SHA' branch='$BRANCH')"
+            exit 1
+          fi
 
-            PR_NUMBER=$(gh pr list --head "auto-update/antigravity-$NEW_VERSION" --json number --jq '.[0].number')
+          # A reused branch can already carry a CI run for this commit, so
+          # remember those and wait for the one this dispatch creates.
+          ci_runs() {
+            gh run list --workflow ci.yml --event workflow_dispatch --branch "$BRANCH" --limit 50 \
+              --json databaseId,headSha --jq ".[] | select(.headSha == \"$HEAD_SHA\") | .databaseId"
+          }
+          BEFORE=$(ci_runs)
+          gh workflow run ci.yml --ref "$BRANCH"
 
-            if [ -n "$PR_NUMBER" ]; then
-              echo "Found PR #$PR_NUMBER"
-              echo "Enabling auto-merge..."
-
-              if gh pr merge "$PR_NUMBER" --auto --squash; then
-                echo "✓ Auto-merge enabled for PR #$PR_NUMBER"
-                exit 0
-              else
-                echo "⚠ Failed to enable auto-merge, but PR exists"
-                exit 0
-              fi
-            fi
-
-            if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
-              echo "PR not found yet, waiting ${WAIT_TIME}s before retry..."
-              sleep $WAIT_TIME
-              WAIT_TIME=$((WAIT_TIME * 2))  # Exponential backoff
-            fi
-
-            ATTEMPT=$((ATTEMPT + 1))
+          RUN_ID=""
+          for _ in $(seq 1 30); do
+            sleep 10
+            RUN_ID=$(ci_runs | grep -vxF -e "$BEFORE" -e "" | head -n1 || true)
+            [ -n "$RUN_ID" ] && break
           done
+          if [ -z "$RUN_ID" ]; then
+            echo "::error::No CI run appeared for $HEAD_SHA on $BRANCH after dispatch"
+            exit 1
+          fi
+          echo "CI run for PR #$PR_NUMBER: $GITHUB_SERVER_URL/$GH_REPO/actions/runs/$RUN_ID"
 
-          echo "⚠ Could not find PR after $MAX_ATTEMPTS attempts"
-          echo "The PR may have been created but not yet visible via API"
+          if ! gh run watch "$RUN_ID" --exit-status --interval 30 > /dev/null; then
+            gh run view "$RUN_ID"
+            echo "::error::CI failed for PR #$PR_NUMBER; the PR stays open"
+            exit 1
+          fi
+
+          # The ruleset can take a moment to see the finished checks.
+          for _ in 1 2 3; do
+            if gh pr merge "$PR_NUMBER" --squash --match-head-commit "$HEAD_SHA"; then
+              echo "✓ Merged PR #$PR_NUMBER"
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "::error::Could not merge PR #$PR_NUMBER after CI passed"
+          exit 1
 
       - name: Report status
         if: always()
