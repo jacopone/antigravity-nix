@@ -11,6 +11,11 @@ permissions:
   pull-requests: write
   actions: write # dispatch CI on the update PR
 
+# A second run would dispatch CI on the same branch and cancel the first run's CI.
+concurrency:
+  group: update-antigravity
+  cancel-in-progress: false
+
 jobs:
   update:
     runs-on: ubuntu-latest

@@ -108,14 +108,12 @@ The `targetPkgs` list in `pkgs/package.nix` includes all libraries the GUI apps 
 
 The four workflows work together:
 
-1. **update.yml**: Runs daily at 07:00 UTC; on a version change it runs `nix flake check` + `nix build` (default, IDE, no-FHS IDE, CLI) to verify the new hashes and the IDE patches, then creates a PR, dispatches `ci.yml` on its branch and squash-merges it once CI passes. The dispatch is needed because PRs opened by `github-actions[bot]` run `pull_request` workflows only after a user approves them; their `pull_request` CI entry stays `action_required` and is not the gate.
+1. **update.yml**: Runs daily at 07:00 UTC; on a version change it runs `nix flake check` + `nix build` (default, IDE, no-FHS IDE, CLI) to verify the new hashes and the IDE patches, then creates a PR, dispatches `ci.yml` on its branch and squash-merges it once CI passes. The dispatch is needed because PRs opened by `github-actions[bot]` run `pull_request` workflows only after a user approves them; their `pull_request` CI entry is `action_required` while the PR is open, turns `failure` (with no jobs) once it is merged or closed, and is never the gate.
 2. **ci.yml**: Builds and tests on Linux and macOS for PRs, pushes to master and dispatches. A ruleset on master requires its `Linux (x86_64)` and `macOS (aarch64)` checks.
 3. **release.yml**: Triggers when update.yml completes successfully (and on pushes to master that change `artifacts/versions.json`), creates GitHub releases. This is why update.yml waits for the merge instead of using auto-merge.
 4. **cleanup-branches.yml**: Deletes merged `auto-update/*` branches (weekly; bot merges trigger no `pull_request` event)
 
-**Release workflow** (release.yml) only runs when:
-- `artifacts/versions.json` is modified
-- Release tag doesn't already exist
+**Release workflow** (release.yml) creates a release only when the tag `v<app version>` does not exist yet.
 
 ## Testing Checklist
 
