@@ -22,11 +22,9 @@ jobs:
   create-release:
     name: Create GitHub release
     runs-on: ubuntu-latest
-    # Only run if: workflow_dispatch, push event, OR workflow_run that succeeded
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      github.event_name == 'push' ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    # Runs after every update run, green or red: master is the source of truth
+    # and the tag check below is the gate. A red update run can still have
+    # merged (a macOS-only CI failure does not hold back the Linux update).
 
     steps:
       - name: Checkout repository

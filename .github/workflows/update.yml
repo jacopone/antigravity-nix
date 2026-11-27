@@ -125,12 +125,12 @@ jobs:
       # Bot-opened PRs only run `pull_request` workflows after a user with write
       # access approves them, so CI never runs on these PRs by itself. A
       # workflow_dispatch from GITHUB_TOKEN does run, and its checks land on the
-      # PR head commit, where the master ruleset requires them. The merge
-      # happens here, not through auto-merge, because release.yml fires when
-      # this workflow completes and must find the new versions on master.
+      # PR head commit, where the master ruleset requires the Linux one. The
+      # merge happens here, not through auto-merge, because release.yml fires
+      # when this workflow completes and must find the new versions on master.
       - name: Run CI on the PR and merge it
         if: steps.update.outputs.has_changes == 'true'
-        timeout-minutes: 75
+        timeout-minutes: 90
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
@@ -166,22 +166,51 @@ jobs:
           fi
           echo "CI run for PR #$PR_NUMBER: $GITHUB_SERVER_URL/$GH_REPO/actions/runs/$RUN_ID"
 
-          if ! gh run watch "$RUN_ID" --exit-status --interval 30 > /dev/null; then
-            gh run view "$RUN_ID"
-            echo "::error::CI failed for PR #$PR_NUMBER; the PR stays open"
+          # Linux gates the merge; macOS reports. A darwin-only break must not
+          # hold back the Linux update, but it still fails this run.
+          job_conclusion() {
+            gh run view "$RUN_ID" --json status,jobs --jq "
+              ([.jobs[] | select(.name == \"$1\")][0]) as \$j
+              | if \$j == null then (if .status == \"completed\" then \"missing\" else \"\" end)
+                elif \$j.status == \"completed\" then \$j.conclusion
+                else \"\" end"
+          }
+          wait_job() {
+            local c=""
+            for _ in $(seq 1 80); do
+              c=$(job_conclusion "$1")
+              if [ -n "$c" ]; then echo "$c"; return 0; fi
+              sleep 30
+            done
+            echo "timed_out"
+          }
+
+          LINUX=$(wait_job "Linux (x86_64)")
+          if [ "$LINUX" != "success" ]; then
+            echo "::error::Linux (x86_64) is '$LINUX' for PR #$PR_NUMBER; the PR stays open"
             exit 1
           fi
 
-          # The ruleset can take a moment to see the finished checks.
+          # The ruleset can take a moment to see the finished check.
+          MERGED=""
           for _ in 1 2 3; do
             if gh pr merge "$PR_NUMBER" --squash --match-head-commit "$HEAD_SHA"; then
-              echo "✓ Merged PR #$PR_NUMBER"
-              exit 0
+              MERGED=1
+              break
             fi
             sleep 20
           done
-          echo "::error::Could not merge PR #$PR_NUMBER after CI passed"
-          exit 1
+          if [ -z "$MERGED" ]; then
+            echo "::error::Could not merge PR #$PR_NUMBER after Linux CI passed"
+            exit 1
+          fi
+          echo "✓ Merged PR #$PR_NUMBER"
+
+          MAC=$(wait_job "macOS (aarch64)")
+          if [ "$MAC" != "success" ]; then
+            echo "::error::macOS (aarch64) is '$MAC' for merged PR #$PR_NUMBER: the darwin packages of this update may be broken"
+            exit 1
+          fi
 
       - name: Report status
         if: always()
