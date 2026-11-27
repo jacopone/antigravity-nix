@@ -108,9 +108,9 @@ The `targetPkgs` list in `pkgs/package.nix` includes all libraries the GUI apps 
 
 The four workflows work together:
 
-1. **update.yml**: Runs daily at 07:00 UTC; on a version change it runs `nix flake check` + `nix build` (default, IDE, no-FHS IDE, CLI) to verify the new hashes and the IDE patches, then creates a PR, dispatches `ci.yml` on its branch and squash-merges it once CI passes. The dispatch is needed because PRs opened by `github-actions[bot]` run `pull_request` workflows only after a user approves them; their `pull_request` CI entry is `action_required` while the PR is open, turns `failure` (with no jobs) once it is merged or closed, and is never the gate.
-2. **ci.yml**: Builds and tests on Linux and macOS for PRs, pushes to master and dispatches. A ruleset on master requires its `Linux (x86_64)` and `macOS (aarch64)` checks.
-3. **release.yml**: Triggers when update.yml completes successfully (and on pushes to master that change `artifacts/versions.json`), creates GitHub releases. This is why update.yml waits for the merge instead of using auto-merge.
+1. **update.yml**: Runs daily at 07:00 UTC; on a version change it runs `nix flake check` + `nix build` (default, IDE, no-FHS IDE, CLI) to verify the new hashes and the IDE patches, then creates a PR, dispatches `ci.yml` on its branch and squash-merges it once the `Linux (x86_64)` job passes. A `macOS (aarch64)` failure does not hold back the merge, but it fails the run. The dispatch is needed because PRs opened by `github-actions[bot]` run `pull_request` workflows only after a user approves them; their `pull_request` CI entry is `action_required` while the PR is open, turns `failure` (with no jobs) once it is merged or closed, and is never the gate.
+2. **ci.yml**: Builds and tests on Linux and macOS for PRs, pushes to master and dispatches. A ruleset on master requires its `Linux (x86_64)` check. `macOS (aarch64)` reports but does not gate, so a darwin-only break never holds back a Linux update.
+3. **release.yml**: Triggers when update.yml completes, green or red (and on pushes to master that change `artifacts/versions.json`), creates GitHub releases. This is why update.yml waits for the merge instead of using auto-merge.
 4. **cleanup-branches.yml**: Deletes merged `auto-update/*` branches (weekly; bot merges trigger no `pull_request` event)
 
 **Release workflow** (release.yml) creates a release only when the tag `v<app version>` does not exist yet.
@@ -156,7 +156,7 @@ The no-FHS IDE patches the minified agy extension so it spawns the Nix-built `ag
 
 ### Update run fails after opening a PR
 
-The "Run CI on the PR and merge it" step failed: CI is red on the PR, or the merge was refused. The PR stays open. Fix the cause and re-run update.yml (`gh workflow run update.yml`): it finds the same branch and dispatches CI again.
+The "Run CI on the PR and merge it" step failed. If `macOS (aarch64)` failed, the PR is already merged: fix the darwin packaging in a new PR. Otherwise Linux CI is red on the PR, or the merge was refused, and the PR stays open. Fix the cause and re-run update.yml (`gh workflow run update.yml`): it finds the same branch and dispatches CI again.
 
 ### Workflow doesn't create PR
 
